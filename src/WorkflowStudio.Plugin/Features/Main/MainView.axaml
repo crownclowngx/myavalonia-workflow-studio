@@ -1,0 +1,106 @@
+<UserControl
+    x:Class="WorkflowStudio.Features.Main.MainView"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:main="using:WorkflowStudio.Features.Main"
+    x:DataType="main:MainDocument">
+  <Grid Margin="16" ColumnDefinitions="260,12,*,12,320" RowDefinitions="Auto,12,*">
+    <StackPanel Grid.ColumnSpan="5" Orientation="Horizontal" Spacing="8">
+      <TextBlock VerticalAlignment="Center" FontSize="22" FontWeight="SemiBold" Text="MyAvalonia Workflow Studio" />
+      <Button Command="{Binding RefreshCatalogCommand}" Content="刷新目录" />
+      <Button Command="{Binding ValidateCommand}" Content="验证" />
+      <Button Command="{Binding ExportCommand}" Content="导出到 JSON 区" />
+      <Button Command="{Binding ImportCommand}" Content="从 JSON 区导入" />
+      <Button Command="{Binding RunCommand}" Content="执行" IsEnabled="{Binding CanExecute}" />
+      <Button Command="{Binding CancelCommand}" Content="取消" IsEnabled="{Binding IsRunning}" />
+    </StackPanel>
+
+    <Border Grid.Row="2" Padding="10" BorderBrush="Gray" BorderThickness="1" CornerRadius="4">
+      <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
+        <TextBlock FontWeight="SemiBold" Text="Action 目录" />
+        <ComboBox Grid.Row="1" Margin="0,8" ItemsSource="{Binding AvailableActions}"
+                  SelectedItem="{Binding SelectedAction}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="main:WorkflowActionChoice">
+              <TextBlock Text="{Binding Display}" TextWrapping="Wrap" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <ListBox Grid.Row="2" ItemsSource="{Binding Steps}" SelectedItem="{Binding SelectedStep}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="main:WorkflowStepEditor">
+              <StackPanel Margin="4">
+                <TextBlock FontWeight="SemiBold" Text="{Binding Id}" />
+                <TextBlock FontSize="11" Opacity="0.7" Text="{Binding ActionName}" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <Button Grid.Row="3" Margin="0,8,0,0" Command="{Binding AddStepCommand}" Content="添加步骤" />
+        <StackPanel Grid.Row="4" Margin="0,8,0,0" Orientation="Horizontal" Spacing="6">
+          <Button Command="{Binding MoveStepUpCommand}" Content="上移" />
+          <Button Command="{Binding MoveStepDownCommand}" Content="下移" />
+          <Button Command="{Binding RemoveStepCommand}" Content="删除" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="2" Grid.Column="2" Padding="10" BorderBrush="Gray" BorderThickness="1" CornerRadius="4">
+      <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,140">
+        <TextBlock FontWeight="SemiBold" Text="结构化步骤编辑器" />
+        <TextBox Grid.Row="1" Margin="0,8,0,0" PlaceholderText="工作流摘要" Text="{Binding Summary}" />
+        <StackPanel Grid.Row="2" Margin="0,8,0,0" Spacing="6" DataContext="{Binding SelectedStep}">
+          <TextBox PlaceholderText="步骤 ID" Text="{Binding Id}" />
+          <TextBox PlaceholderText="ForEach，例如 ${previous.result.items}" Text="{Binding ForEach}" />
+        </StackPanel>
+        <ScrollViewer Grid.Row="3" Margin="0,8">
+          <ItemsControl ItemsSource="{Binding SelectedStep.Arguments}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="main:WorkflowArgumentEditor">
+                <Grid Margin="0,0,0,8" ColumnDefinitions="120,110,*">
+                  <StackPanel>
+                    <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                    <TextBlock FontSize="11" Opacity="0.7" Text="{Binding SchemaType}" />
+                  </StackPanel>
+                  <ComboBox Grid.Column="1" Margin="6,0" ItemsSource="{Binding Modes}" SelectedItem="{Binding Mode}" />
+                  <TextBox Grid.Column="2" Text="{Binding Value}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="6">
+          <TextBox Width="130" PlaceholderText="Secret 名称" Text="{Binding SecretName}" />
+          <TextBox Width="220" PasswordChar="●" PlaceholderText="仅存当前会话" Text="{Binding SecretValue}" />
+          <Button Command="{Binding StoreSecretCommand}" Content="写入 Secret" />
+        </StackPanel>
+        <TextBox Grid.Row="5" Margin="0,8,0,0" AcceptsReturn="True" FontFamily="Consolas"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto" Text="{Binding DefinitionJson}"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto" PlaceholderText="规范 JSON 导入/查看区" />
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="2" Grid.Column="4" Padding="10" BorderBrush="Gray" BorderThickness="1" CornerRadius="4">
+      <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,*">
+        <TextBlock FontWeight="SemiBold" Text="验证与运行" />
+        <TextBlock Grid.Row="1" Margin="0,8" Text="{Binding RiskSummary}" TextWrapping="Wrap" />
+        <ListBox Grid.Row="2" ItemsSource="{Binding ValidationMessages}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="main:WorkflowValidationMessage">
+              <TextBlock Foreground="IndianRed" Text="{Binding Display}" TextWrapping="Wrap" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBlock Grid.Row="3" Margin="0,8" FontWeight="SemiBold" Text="{Binding RunStatus}" TextWrapping="Wrap" />
+        <TextBlock Grid.Row="4" Text="调用记录（不保存输入与输出）" />
+        <ListBox Grid.Row="5" ItemsSource="{Binding RunMessages}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="main:WorkflowRunMessage">
+              <TextBlock Text="{Binding Display}" TextWrapping="Wrap" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

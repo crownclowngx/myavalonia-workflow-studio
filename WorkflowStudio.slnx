@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WorkflowStudio.Plugin/WorkflowStudio.Plugin.csproj" />
+    <Project Path="src/WorkflowStudio.Standalone/WorkflowStudio.Standalone.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WorkflowStudio.Tests/WorkflowStudio.Tests.csproj" />
+  </Folder>
+</Solution>
