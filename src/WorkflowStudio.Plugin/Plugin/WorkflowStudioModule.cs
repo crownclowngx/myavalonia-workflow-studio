@@ -17,6 +17,6 @@ public sealed class WorkflowStudioModule : IPluginModule
                 PluginIds.StudioDocument,
                 "Workflow Studio",
                 "临时编辑、验证并执行受 Host 治理的 Workflow Action",
-                "WorkflowStudio"));
+                "工作流插件"));
     }
 }
