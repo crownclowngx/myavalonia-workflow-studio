@@ -23,26 +23,33 @@ public sealed record WorkflowStudioLimits(
 }
 
 /// <summary>
-/// Studio 私有的版本 1 工作流定义。它不是 Plugin SDK，也不进入 Host 的 Document 持久化协议。
+/// Studio 私有的版本 2 工作流定义。它不是 Plugin SDK，也不进入 Host 的 Document 持久化协议。
 /// 构造时复制步骤集合，调用方随后修改原集合不会改变待验证的定义快照。
 /// </summary>
-public sealed class WorkflowDefinitionV1
+/// <remarks>
+/// v2 把执行契约修订与展示修订分开保存。契约漂移会阻止执行；仅文案漂移只产生 Warning。
+/// Codec 有意硬切版本，不在执行边界内加入 v1 迁移或猜测逻辑。
+/// </remarks>
+public sealed class WorkflowDefinitionV2
 {
-    public WorkflowDefinitionV1(
+    public WorkflowDefinitionV2(
         int schemaVersion,
-        string catalogRevision,
+        string contractRevision,
+        string presentationRevision,
         string summary,
         IReadOnlyList<WorkflowStepDefinition> steps)
     {
         SchemaVersion = schemaVersion;
-        CatalogRevision = catalogRevision ?? throw new ArgumentNullException(nameof(catalogRevision));
+        ContractRevision = contractRevision ?? throw new ArgumentNullException(nameof(contractRevision));
+        PresentationRevision = presentationRevision ?? throw new ArgumentNullException(nameof(presentationRevision));
         Summary = summary ?? throw new ArgumentNullException(nameof(summary));
         ArgumentNullException.ThrowIfNull(steps);
         Steps = new ReadOnlyCollection<WorkflowStepDefinition>(steps.ToArray());
     }
 
     public int SchemaVersion { get; }
-    public string CatalogRevision { get; }
+    public string ContractRevision { get; }
+    public string PresentationRevision { get; }
     public string Summary { get; }
     public IReadOnlyList<WorkflowStepDefinition> Steps { get; }
 }
@@ -68,13 +75,28 @@ public sealed class WorkflowStepDefinition
     public string? ForEach { get; }
 }
 
-public sealed record WorkflowValidationIssue(string Code, string Path, string Message);
+/// <summary>区分不阻止执行的目录展示提示与必须修复的确定性错误。</summary>
+public enum WorkflowValidationSeverity
+{
+    /// <summary>定义仍可安全执行，但用户应刷新展示信息。</summary>
+    Warning,
+    /// <summary>执行安全无法证明，必须阻止运行。</summary>
+    Error,
+}
 
+/// <summary>描述一次运行前验证发现的稳定、可定位且不包含 Secret 的问题。</summary>
+public sealed record WorkflowValidationIssue(
+    WorkflowValidationSeverity Severity,
+    string Code,
+    string Path,
+    string Message);
+
+/// <summary>保存验证问题快照；只有 Error 会令 <see cref="IsValid"/> 为 false。</summary>
 public sealed class WorkflowValidationResult(IReadOnlyList<WorkflowValidationIssue> issues)
 {
     public IReadOnlyList<WorkflowValidationIssue> Issues { get; } =
         new ReadOnlyCollection<WorkflowValidationIssue>(issues.ToArray());
-    public bool IsValid => Issues.Count == 0;
+    public bool IsValid => Issues.All(issue => issue.Severity != WorkflowValidationSeverity.Error);
 }
 
 public sealed record WorkflowRiskSummary(
@@ -92,17 +114,32 @@ public sealed record WorkflowRunEntry(
     string? FailureCode,
     string? FailureMessage);
 
+/// <summary>描述未进入 Action invocation 的工作流级运行失败。</summary>
+/// <remarks>
+/// StepId、ItemIndex 与 Path 允许 UI 精确定位失败点；Message 只保存脱敏说明，引用正文和
+/// Secret 永远不进入结果。该类型与 Provider 返回的 WorkflowActionFailure 各自拥有边界。
+/// </remarks>
+public sealed record WorkflowRunFailure(
+    string Code,
+    string StepId,
+    int? ItemIndex,
+    string Path,
+    string Message);
+
+/// <summary>汇总已经发生的 Action 调用与可选的工作流级结构化失败。</summary>
 public sealed class WorkflowRunResult(
     bool succeeded,
     bool cancelled,
     IReadOnlyList<WorkflowRunEntry> entries,
-    string message)
+    string message,
+    WorkflowRunFailure? failure = null)
 {
     public bool Succeeded { get; } = succeeded;
     public bool Cancelled { get; } = cancelled;
     public IReadOnlyList<WorkflowRunEntry> Entries { get; } =
         new ReadOnlyCollection<WorkflowRunEntry>(entries.ToArray());
     public string Message { get; } = message;
+    public WorkflowRunFailure? Failure { get; } = failure;
 }
 
 public sealed record WorkflowRunProgress(

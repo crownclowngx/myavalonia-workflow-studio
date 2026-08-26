@@ -32,7 +32,7 @@ internal sealed class FakeWorkflowActionGateway : IWorkflowActionGateway
         using var generateInput = JsonDocument.Parse(
             """{"type":"object","properties":{"count":{"type":"integer","minimum":1,"maximum":10},"prefix":{"type":"string","minLength":1,"maxLength":32}},"required":["count","prefix"],"additionalProperties":false}""");
         using var generateOutput = JsonDocument.Parse(
-            """{"type":"object","properties":{"items":{"type":"array","maxItems":10,"items":{"type":"object","properties":{"index":{"type":"integer"},"value":{"type":"string","maxLength":64}},"required":["index","value"],"additionalProperties":false}}},"required":["items"],"additionalProperties":false}""");
+            """{"type":"object","properties":{"items":{"type":"array","maxItems":10,"items":{"type":"object","properties":{"index":{"type":"integer"},"value":{"type":"string","minLength":1,"maxLength":64}},"required":["index","value"],"additionalProperties":false}}},"required":["items"],"additionalProperties":false}""");
         using var formatInput = JsonDocument.Parse(
             """{"type":"object","properties":{"value":{"type":"string","minLength":1,"maxLength":64},"secret":{"type":"string","minLength":1,"maxLength":128}},"required":["value","secret"],"additionalProperties":false}""");
         using var formatOutput = JsonDocument.Parse(

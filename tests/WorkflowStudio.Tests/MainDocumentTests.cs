@@ -17,14 +17,10 @@ public sealed class MainDocumentTests : IDisposable
     {
         var services = TestServiceFactory.Create(_gateway);
         _secrets = services.Secrets;
-        _document = new MainDocument(
-            services.Catalog,
-            services.Codec,
-            services.Validator,
-            new WorkflowRiskSummaryBuilder(),
-            services.Runner,
-            services.Secrets,
-            _lifetime);
+        var editor = new WorkflowEditorCoordinator(
+            services.Catalog, services.Codec, services.Validator, new WorkflowRiskSummaryBuilder());
+        var runSession = new WorkflowRunSession(services.Runner, services.Secrets, _lifetime);
+        _document = new MainDocument(editor, runSession, _lifetime);
     }
 
     [Fact]

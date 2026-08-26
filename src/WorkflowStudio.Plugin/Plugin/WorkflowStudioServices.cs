@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
+using MyAvaloniaManagement.PluginSdk.Workflow;
+using WorkflowStudio.Features.Main;
 using WorkflowStudio.Workflows;
 
 namespace WorkflowStudio.Plugin;
@@ -16,6 +18,8 @@ public static class WorkflowStudioServices
         // Codec、Schema 校验和风险摘要器均无会话状态，使用 Singleton 可以明确表达其可复用性。
         services.AddSingleton<IWorkflowDefinitionCodec, WorkflowDefinitionCodec>();
         services.AddSingleton<IWorkflowJsonSchemaValidator, WorkflowJsonSchemaValidator>();
+        services.AddSingleton<WorkflowSchemaValidator>();
+        services.AddSingleton<WorkflowReferenceTypeSystem>();
         services.AddSingleton<IWorkflowRiskSummaryBuilder, WorkflowRiskSummaryBuilder>();
 
         // 目录、Secret 和 Runner 都属于一次 Document Scope。这样两个 Studio 文档不会共享
@@ -25,6 +29,8 @@ public static class WorkflowStudioServices
         services.AddScoped<IWorkflowReferenceResolver, WorkflowReferenceResolver>();
         services.AddScoped<ISessionSecretStore, SessionSecretStore>();
         services.AddScoped<IWorkflowRunner, WorkflowRunner>();
+        services.AddScoped<IWorkflowEditorCoordinator, WorkflowEditorCoordinator>();
+        services.AddScoped<IWorkflowRunSession, WorkflowRunSession>();
         return services;
     }
 }

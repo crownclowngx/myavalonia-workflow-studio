@@ -23,7 +23,11 @@ Standalone 不注册 Provider 插件，而是在自身组合根中注入一个�
 | `format-item` | 顺序消费 item 与会话 Secret，不回显 Secret | `HandlesSecret` / `OncePerRun` |
 
 该 Fake 能证明 UI、目录、定义、引用、ForEach、Secret 展开、进度、失败停止、取消和 Run 释放，但不会模拟
-Host 授权、ALC 或 Provider Scope。真实加载仍由 G3 门禁把正式 ZIP 部署到候选 Host 隔离副本后启动验证。
+Host 授权、ALC 或 Provider Scope。真实加载仍由 G3.1 门禁把正式 ZIP 部署到候选 Host 隔离副本后启动验证。
+
+G3.1 的 Schema Profile、实例验证、保守可赋值、引用路径和双 revision 算法来自共享 Workflow SDK。
+正式插件只引用该契约，ZIP 不携带 `MyAvaloniaManagement.PluginSdk.Workflow.dll`；候选 Host 必须通过
+manifest 的 SDK 下限 `3.2.0` 保证默认 ALC 已提供 Workflow SDK 1.0.0。
 
 ## 安全规则
 

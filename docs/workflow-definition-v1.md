@@ -1,5 +1,8 @@
 # Workflow Definition v1 与执行语义
 
+> 历史文档：本格式只属于 G3。Workflow Studio 1.1.0 的 Codec 已硬切 v2，明确拒绝 v1；
+> 不提供隐式迁移、兼容导入或混合版本解释。当前格式见 [Workflow Definition v2](workflow-definition-v2.md)。
+
 ## 定义边界
 
 定义格式是 Workflow Studio 私有数据，不属于 Plugin SDK，也不进入 Host Document 信封。G3 的 Document

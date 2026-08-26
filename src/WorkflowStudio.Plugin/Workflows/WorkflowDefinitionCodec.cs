@@ -4,19 +4,24 @@ using MyAvaloniaManagement.PluginSdk;
 
 namespace WorkflowStudio.Workflows;
 
+/// <summary>定义 Workflow v2 严格 JSON 编解码边界。</summary>
 public interface IWorkflowDefinitionCodec
 {
-    WorkflowDefinitionV1 Parse(string json);
-    string Serialize(WorkflowDefinitionV1 definition);
+    WorkflowDefinitionV2 Parse(string json);
+    string Serialize(WorkflowDefinitionV2 definition);
 }
 /// <summary>
-/// 严格读取和规范写出定义 v1。定义结构使用白名单字段；arguments 内部保留 Action 自己的 JSON，
+/// 严格读取和规范写出定义 v2。定义结构使用白名单字段；arguments 内部保留 Action 自己的 JSON，
 /// 但仍拒绝重复属性，避免“显示一个值、执行另一个值”的歧义输入。
 /// </summary>
+/// <remarks>
+/// 根节点未知字段、重复字段、v1 与混合版本全部作为脱敏格式错误拒绝。这里不承担版本迁移，
+/// 使导入后的对象必然只有一种可验证含义。
+/// </remarks>
 public sealed class WorkflowDefinitionCodec : IWorkflowDefinitionCodec
 {
     private static readonly HashSet<string> RootProperties =
-        ["schemaVersion", "catalogRevision", "summary", "steps"];
+        ["schemaVersion", "contractRevision", "presentationRevision", "summary", "steps"];
     private static readonly HashSet<string> StepProperties =
         ["id", "actionId", "forEach", "arguments"];
     private readonly WorkflowStudioLimits _limits;
@@ -25,7 +30,7 @@ public sealed class WorkflowDefinitionCodec : IWorkflowDefinitionCodec
 
     internal WorkflowDefinitionCodec(WorkflowStudioLimits limits) => _limits = limits;
 
-    public WorkflowDefinitionV1 Parse(string json)
+    public WorkflowDefinitionV2 Parse(string json)
     {
         ArgumentNullException.ThrowIfNull(json);
         if (Encoding.UTF8.GetByteCount(json) > _limits.MaximumDefinitionBytes)
@@ -47,7 +52,10 @@ public sealed class WorkflowDefinitionCodec : IWorkflowDefinitionCodec
             RequireProperties(document.RootElement, RootProperties, "根节点");
 
             var schemaVersion = document.RootElement.GetProperty("schemaVersion").GetInt32();
-            var revision = RequireString(document.RootElement.GetProperty("catalogRevision"), "catalogRevision");
+            var contractRevision = RequireString(
+                document.RootElement.GetProperty("contractRevision"), "contractRevision");
+            var presentationRevision = RequireString(
+                document.RootElement.GetProperty("presentationRevision"), "presentationRevision");
             var summary = RequireString(document.RootElement.GetProperty("summary"), "summary");
             var stepsElement = document.RootElement.GetProperty("steps");
             if (stepsElement.ValueKind != JsonValueKind.Array)
@@ -85,7 +93,12 @@ public sealed class WorkflowDefinitionCodec : IWorkflowDefinitionCodec
                 index++;
             }
 
-            return new WorkflowDefinitionV1(schemaVersion, revision, summary, steps);
+            if (schemaVersion != 2)
+            {
+                throw new WorkflowDefinitionFormatException("只接受 schemaVersion 2；v1 不提供兼容导入。 ");
+            }
+            return new WorkflowDefinitionV2(
+                schemaVersion, contractRevision, presentationRevision, summary, steps);
         }
         catch (WorkflowDefinitionFormatException)
         {
@@ -95,11 +108,11 @@ public sealed class WorkflowDefinitionCodec : IWorkflowDefinitionCodec
                                           ArgumentException or OverflowException)
         {
             // 不把原始 JSON 或异常中可能包含的输入片段向 UI/诊断传播。
-            throw new WorkflowDefinitionFormatException("工作流定义不是合法的严格 v1 JSON。", exception);
+            throw new WorkflowDefinitionFormatException("工作流定义不是合法的严格 v2 JSON。", exception);
         }
     }
 
-    public string Serialize(WorkflowDefinitionV1 definition)
+    public string Serialize(WorkflowDefinitionV2 definition)
     {
         ArgumentNullException.ThrowIfNull(definition);
         using var stream = new MemoryStream();
@@ -107,7 +120,8 @@ public sealed class WorkflowDefinitionCodec : IWorkflowDefinitionCodec
         {
             writer.WriteStartObject();
             writer.WriteNumber("schemaVersion", definition.SchemaVersion);
-            writer.WriteString("catalogRevision", definition.CatalogRevision);
+            writer.WriteString("contractRevision", definition.ContractRevision);
+            writer.WriteString("presentationRevision", definition.PresentationRevision);
             writer.WriteString("summary", definition.Summary);
             writer.WritePropertyName("steps");
             writer.WriteStartArray();

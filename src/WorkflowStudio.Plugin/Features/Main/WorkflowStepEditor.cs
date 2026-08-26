@@ -69,9 +69,13 @@ public sealed record WorkflowActionChoice(WorkflowActionDescriptor Descriptor)
     public string Display => $"{Descriptor.DisplayName}  ·  {Descriptor.Id.Value}";
 }
 
-public sealed record WorkflowValidationMessage(string Code, string Path, string Message)
+public sealed record WorkflowValidationMessage(
+    WorkflowValidationSeverity Severity,
+    string Code,
+    string Path,
+    string Message)
 {
-    public string Display => $"[{Code}] {Path}：{Message}";
+    public string Display => $"[{Severity} · {Code}] {Path}：{Message}";
 }
 
 public sealed record WorkflowRunMessage(string Display);

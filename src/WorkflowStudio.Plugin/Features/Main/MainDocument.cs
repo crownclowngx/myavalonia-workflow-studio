@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Text.Json;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -8,21 +7,17 @@ using WorkflowStudio.Workflows;
 
 namespace WorkflowStudio.Features.Main;
 
-/// <summary>
-/// Workflow Studio 的非持久化 Document 模型。它负责 UI 用例编排和可观察状态，不实现 Codec、
-/// 验证或运行算法；这些职责由构造注入的小服务承担，便于分别测试和替换 Standalone Fake 边界。
-/// </summary>
+/// <summary>Workflow Studio 的非持久化 Document 与 UI 状态适配器。</summary>
+/// <remarks>
+/// 编辑规则属于 WorkflowEditorCoordinator，Secret/取消/执行属于 WorkflowRunSession；本类型只维护
+/// Avalonia 绑定所需的可观察集合、命令可用性和 Document 生命周期。
+/// </remarks>
 public sealed partial class MainDocument : ObservableObject, IPluginDocument, IDisposable
 {
-    private readonly IWorkflowActionCatalogProjection _catalogProjection;
-    private readonly IWorkflowDefinitionCodec _codec;
-    private readonly IWorkflowDefinitionValidator _validator;
-    private readonly IWorkflowRiskSummaryBuilder _riskBuilder;
-    private readonly IWorkflowRunner _runner;
-    private readonly ISessionSecretStore _secrets;
+    private readonly IWorkflowEditorCoordinator _editor;
+    private readonly IWorkflowRunSession _runSession;
     private readonly IDocumentLifetime _lifetime;
     private WorkflowActionCatalogSnapshot? _catalog;
-    private CancellationTokenSource? _runCancellation;
     private CancellationTokenRegistration _closingRegistration;
     private DocumentPresentationState _presentation = new("Workflow Studio");
     private bool _disposed;
@@ -39,22 +34,13 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
     [ObservableProperty] private string _runStatus = "尚未执行。";
 
     public MainDocument(
-        IWorkflowActionCatalogProjection catalogProjection,
-        IWorkflowDefinitionCodec codec,
-        IWorkflowDefinitionValidator validator,
-        IWorkflowRiskSummaryBuilder riskBuilder,
-        IWorkflowRunner runner,
-        ISessionSecretStore secrets,
+        IWorkflowEditorCoordinator editor,
+        IWorkflowRunSession runSession,
         IDocumentLifetime lifetime)
     {
-        _catalogProjection = catalogProjection;
-        _codec = codec;
-        _validator = validator;
-        _riskBuilder = riskBuilder;
-        _runner = runner;
-        _secrets = secrets;
+        _editor = editor;
+        _runSession = runSession;
         _lifetime = lifetime;
-
         RefreshCatalogCommand = new RelayCommand(RefreshCatalog, () => !IsRunning);
         AddStepCommand = new RelayCommand(AddStep, () => SelectedAction is not null && !IsRunning);
         RemoveStepCommand = new RelayCommand(RemoveStep, () => SelectedStep is not null && !IsRunning);
@@ -65,7 +51,7 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
         ExportCommand = new RelayCommand(ExportDefinition, () => !IsRunning);
         StoreSecretCommand = new RelayCommand(StoreSecret, () => !IsRunning);
         RunCommand = new AsyncRelayCommand(RunAsync, () => CanExecute && !IsRunning);
-        CancelCommand = new RelayCommand(Cancel, () => IsRunning);
+        CancelCommand = new RelayCommand(_runSession.Cancel, () => IsRunning);
     }
 
     public ObservableCollection<WorkflowActionChoice> AvailableActions { get; } = [];
@@ -94,7 +80,7 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
         cancellationToken.ThrowIfCancellationRequested();
         if (!string.IsNullOrWhiteSpace(activation.Title))
         {
-            _presentation = new DocumentPresentationState(activation.Title);
+            _presentation = new(activation.Title);
             PresentationChanged?.Invoke(this, EventArgs.Empty);
         }
         _closingRegistration = _lifetime.ClosingToken.Register(CloseSession);
@@ -105,11 +91,8 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
     /// <summary>Standalone 自检和单元测试使用的窄入口；正常 UI 仍通过命令编辑。</summary>
     public void LoadDemonstrationWorkflow(string secretValue)
     {
-        if (_catalog is null)
-        {
-            RefreshCatalog();
-        }
-        _secrets.Set("session-key", secretValue);
+        EnsureCatalog();
+        _runSession.SetSecret("session-key", secretValue);
         Steps.Clear();
         AddStepByActionSuffix("generate-items", "generate", null,
             new Dictionary<string, (WorkflowArgumentMode, string)>
@@ -126,29 +109,26 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
         ValidateDefinition();
     }
 
-    public WorkflowDefinitionV1 BuildDefinition()
+    public WorkflowDefinitionV2 BuildDefinition()
     {
-        if (_catalog is null)
-        {
-            throw new InvalidOperationException("尚未取得 Action 目录。");
-        }
-        return new WorkflowDefinitionV1(1, _catalog.Revision, Summary, Steps.Select(item => item.Build()).ToArray());
+        EnsureCatalog();
+        return _editor.BuildDefinition(_catalog!, Summary, Steps);
     }
 
-    public async Task<WorkflowRunResult> RunCurrentAsync(CancellationToken cancellationToken = default) =>
-        await _runner.RunAsync(BuildDefinition(), progress: null, cancellationToken);
+    public Task<WorkflowRunResult> RunCurrentAsync(CancellationToken cancellationToken = default) =>
+        _runSession.RunAsync(BuildDefinition(), null, cancellationToken);
 
     private void RefreshCatalog()
     {
-        _catalog = _catalogProjection.Capture();
+        _catalog = _editor.CaptureCatalog();
         AvailableActions.Clear();
         foreach (var action in _catalog.Actions)
         {
-            AvailableActions.Add(new WorkflowActionChoice(action));
+            AvailableActions.Add(new(action));
         }
         SelectedAction = AvailableActions.FirstOrDefault();
         CanExecute = false;
-        RiskSummary = $"目录 revision：{_catalog.Revision}；动作数：{_catalog.Actions.Count}。";
+        RiskSummary = $"契约：{_catalog.ContractRevision}；展示：{_catalog.PresentationRevision}；动作数：{_catalog.Actions.Count}。";
         NotifyCommandState();
     }
 
@@ -165,9 +145,9 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
         {
             candidate = suffix + "-" + number++;
         }
-        var editor = CreateStep(SelectedAction.Descriptor, candidate, null);
-        Steps.Add(editor);
-        SelectedStep = editor;
+        var step = _editor.CreateStep(SelectedAction.Descriptor, candidate, null);
+        Steps.Add(step);
+        SelectedStep = step;
         CanExecute = false;
         NotifyCommandState();
     }
@@ -178,8 +158,9 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
         string? forEach,
         IReadOnlyDictionary<string, (WorkflowArgumentMode Mode, string Value)> values)
     {
-        var action = _catalog!.Actions.Single(item => item.Id.Value.EndsWith("." + suffix, StringComparison.Ordinal));
-        var editor = CreateStep(action, id, forEach);
+        var action = _catalog!.Actions.Single(item =>
+            item.Id.Value.EndsWith("." + suffix, StringComparison.Ordinal));
+        var editor = _editor.CreateStep(action, id, forEach);
         foreach (var argument in editor.Arguments)
         {
             if (values.TryGetValue(argument.Name, out var value))
@@ -191,43 +172,6 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
         Steps.Add(editor);
         SelectedStep = editor;
     }
-
-    private static WorkflowStepEditor CreateStep(
-        WorkflowActionDescriptor action,
-        string id,
-        string? forEach)
-    {
-        var editor = new WorkflowStepEditor { Action = action, Id = id, ForEach = forEach };
-        if (action.InputSchema.TryGetProperty("properties", out var properties))
-        {
-            foreach (var property in properties.EnumerateObject())
-            {
-                var pointer = "/" + property.Name.Replace("~", "~0", StringComparison.Ordinal)
-                    .Replace("/", "~1", StringComparison.Ordinal);
-                var sensitive = action.SensitiveInputPointers.Contains(pointer, StringComparer.Ordinal);
-                var type = WorkflowJsonSchemaValidator.SchemaType(property.Value) ?? "json";
-                editor.Arguments.Add(new WorkflowArgumentEditor
-                {
-                    Name = property.Name,
-                    SchemaType = type,
-                    IsSensitive = sensitive,
-                    Mode = sensitive ? WorkflowArgumentMode.Secret : WorkflowArgumentMode.Constant,
-                    Value = sensitive ? "${secret.session-key}" : DefaultConstant(type),
-                });
-            }
-        }
-        return editor;
-    }
-
-    private static string DefaultConstant(string type) => type switch
-    {
-        "string" => "\"\"",
-        "integer" or "number" => "0",
-        "boolean" => "false",
-        "array" => "[]",
-        "object" => "{}",
-        _ => "null",
-    };
 
     private void RemoveStep()
     {
@@ -262,18 +206,17 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
         ValidationMessages.Clear();
         try
         {
-            var definition = BuildDefinition();
-            var result = _validator.Validate(definition, _catalog!);
-            foreach (var issue in result.Issues)
+            var validation = _editor.Validate(BuildDefinition(), _catalog!);
+            foreach (var issue in validation.Validation.Issues)
             {
-                ValidationMessages.Add(new WorkflowValidationMessage(issue.Code, issue.Path, issue.Message));
+                ValidationMessages.Add(new(issue.Severity, issue.Code, issue.Path, issue.Message));
             }
-            CanExecute = result.IsValid;
-            RiskSummary = _riskBuilder.Build(definition, _catalog!).Description;
+            CanExecute = validation.Validation.IsValid;
+            RiskSummary = validation.Risk.Description;
         }
         catch (Exception exception) when (exception is WorkflowDefinitionFormatException or InvalidOperationException)
         {
-            ValidationMessages.Add(new WorkflowValidationMessage("editor.format", "$", exception.Message));
+            AddUiError("editor.format", "$", exception.Message);
             CanExecute = false;
         }
         NotifyCommandState();
@@ -283,12 +226,12 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
     {
         try
         {
-            DefinitionJson = _codec.Serialize(BuildDefinition());
+            DefinitionJson = _editor.Export(BuildDefinition());
         }
         catch (Exception exception) when (exception is WorkflowDefinitionFormatException or InvalidOperationException)
         {
             ValidationMessages.Clear();
-            ValidationMessages.Add(new WorkflowValidationMessage("export.failed", "$", exception.Message));
+            AddUiError("export.failed", "$", exception.Message);
         }
     }
 
@@ -296,48 +239,13 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
     {
         try
         {
-            var definition = _codec.Parse(DefinitionJson);
-            if (_catalog is null)
-            {
-                RefreshCatalog();
-            }
-            // 先在局部集合中完整解析；任一步失败都保留用户当前编辑状态，避免一次恶意或过期导入
-            // 把已经通过验证的临时工作流清空。
-            var importedSteps = new List<WorkflowStepEditor>();
-            foreach (var step in definition.Steps)
-            {
-                if (!_catalog!.TryGet(step.ActionId, out var action))
-                {
-                    throw new WorkflowDefinitionFormatException($"导入定义包含未知 Action：{step.ActionId.Value}。");
-                }
-                var editor = CreateStep(action!, step.Id, step.ForEach);
-                foreach (var argument in editor.Arguments)
-                {
-                    if (!step.Arguments.TryGetProperty(argument.Name, out var value))
-                    {
-                        continue;
-                    }
-                    var text = value.ValueKind == JsonValueKind.String ? value.GetString()! : value.GetRawText();
-                    if (WorkflowReferenceToken.TryParse(text, out var token))
-                    {
-                        argument.Mode = token!.Kind == WorkflowReferenceKind.Secret
-                            ? WorkflowArgumentMode.Secret
-                            : WorkflowArgumentMode.Reference;
-                        argument.Value = text;
-                    }
-                    else
-                    {
-                        argument.Mode = WorkflowArgumentMode.Constant;
-                        argument.Value = value.GetRawText();
-                    }
-                }
-                importedSteps.Add(editor);
-            }
+            EnsureCatalog();
+            var snapshot = _editor.Import(DefinitionJson, _catalog!);
             Steps.Clear();
-            Summary = definition.Summary;
-            foreach (var editor in importedSteps)
+            Summary = snapshot.Summary;
+            foreach (var step in snapshot.Steps)
             {
-                Steps.Add(editor);
+                Steps.Add(step);
             }
             SelectedStep = Steps.FirstOrDefault();
             ValidateDefinition();
@@ -345,7 +253,7 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
         catch (WorkflowDefinitionFormatException exception)
         {
             ValidationMessages.Clear();
-            ValidationMessages.Add(new WorkflowValidationMessage("import.failed", "$", exception.Message));
+            AddUiError("import.failed", "$", exception.Message);
             CanExecute = false;
         }
     }
@@ -354,14 +262,14 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
     {
         try
         {
-            _secrets.Set(SecretName, SecretValue);
+            _runSession.SetSecret(SecretName, SecretValue);
             SecretValue = string.Empty;
             ValidateDefinition();
         }
         catch (ArgumentException exception)
         {
             ValidationMessages.Clear();
-            ValidationMessages.Add(new WorkflowValidationMessage("secret.name", "$.secret", exception.Message));
+            AddUiError("secret.name", "$.secret", exception.Message);
         }
     }
 
@@ -372,7 +280,6 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
         {
             return;
         }
-        _runCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.ClosingToken);
         IsRunning = true;
         RunMessages.Clear();
         RunStatus = "正在执行…";
@@ -381,13 +288,17 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
         {
             var progress = new Progress<WorkflowRunProgress>(item =>
                 RunStatus = $"{item.StepId}：{item.Stage} {item.Percent?.ToString() ?? "-"}%");
-            var result = await _runner.RunAsync(BuildDefinition(), progress, _runCancellation.Token);
+            var result = await _runSession.RunAsync(BuildDefinition(), progress, CancellationToken.None);
             foreach (var entry in result.Entries)
             {
                 var item = entry.ItemIndex is null ? string.Empty : $"[{entry.ItemIndex}]";
-                RunMessages.Add(new WorkflowRunMessage(
-                    $"{entry.StepId}{item} · {entry.Status} · {entry.InvocationId:D}" +
+                RunMessages.Add(new($"{entry.StepId}{item} · {entry.Status} · {entry.InvocationId:D}" +
                     (entry.FailureCode is null ? string.Empty : $" · {entry.FailureCode}: {entry.FailureMessage}")));
+            }
+            if (result.Failure is not null)
+            {
+                RunMessages.Add(new($"{result.Failure.StepId} · {result.Failure.Code} · " +
+                    $"{result.Failure.Path}：{result.Failure.Message}"));
             }
             RunStatus = result.Message;
         }
@@ -396,43 +307,48 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
             ValidationMessages.Clear();
             foreach (var issue in exception.Result.Issues)
             {
-                ValidationMessages.Add(new WorkflowValidationMessage(issue.Code, issue.Path, issue.Message));
+                ValidationMessages.Add(new(issue.Severity, issue.Code, issue.Path, issue.Message));
             }
             RunStatus = "执行前目录或定义已失效。";
         }
         finally
         {
-            _runCancellation.Dispose();
-            _runCancellation = null;
             IsRunning = false;
             NotifyCommandState();
         }
     }
 
-    private void Cancel() => _runCancellation?.Cancel();
+    private void EnsureCatalog()
+    {
+        if (_catalog is null)
+        {
+            RefreshCatalog();
+        }
+    }
 
     private void CloseSession()
     {
-        _runCancellation?.Cancel();
-        _secrets.Clear();
+        _runSession.Close();
         Steps.Clear();
         DefinitionJson = string.Empty;
         CanExecute = false;
     }
 
+    private void AddUiError(string code, string path, string message) =>
+        ValidationMessages.Add(new(WorkflowValidationSeverity.Error, code, path, message));
+
     private void NotifyCommandState()
     {
-        (RefreshCatalogCommand as RelayCommand)?.NotifyCanExecuteChanged();
-        (AddStepCommand as RelayCommand)?.NotifyCanExecuteChanged();
-        (RemoveStepCommand as RelayCommand)?.NotifyCanExecuteChanged();
-        (MoveStepUpCommand as RelayCommand)?.NotifyCanExecuteChanged();
-        (MoveStepDownCommand as RelayCommand)?.NotifyCanExecuteChanged();
-        (ValidateCommand as RelayCommand)?.NotifyCanExecuteChanged();
-        (ImportCommand as RelayCommand)?.NotifyCanExecuteChanged();
-        (ExportCommand as RelayCommand)?.NotifyCanExecuteChanged();
-        (StoreSecretCommand as RelayCommand)?.NotifyCanExecuteChanged();
+        foreach (var command in new[]
+                 {
+                     RefreshCatalogCommand, AddStepCommand, RemoveStepCommand, MoveStepUpCommand,
+                     MoveStepDownCommand, ValidateCommand, ImportCommand, ExportCommand,
+                     StoreSecretCommand, CancelCommand
+                 }.OfType<RelayCommand>())
+        {
+            command.NotifyCanExecuteChanged();
+        }
         RunCommand.NotifyCanExecuteChanged();
-        (CancelCommand as RelayCommand)?.NotifyCanExecuteChanged();
     }
 
     partial void OnSelectedActionChanged(WorkflowActionChoice? value) => NotifyCommandState();
@@ -449,10 +365,6 @@ public sealed partial class MainDocument : ObservableObject, IPluginDocument, ID
         _disposed = true;
         _closingRegistration.Dispose();
         CloseSession();
-        _runCancellation?.Dispose();
-        if (_secrets is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
+        _runSession.Dispose();
     }
 }

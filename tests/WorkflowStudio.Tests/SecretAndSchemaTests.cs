@@ -43,11 +43,10 @@ public sealed class SecretAndSchemaTests
 
         new WorkflowJsonSchemaValidator().Validate(value, schema.RootElement, "$", false, issues);
 
-        Assert.Contains(issues, item => item.Code == "schema.enum");
-        Assert.Contains(issues, item => item.Code == "schema.maxItems");
-        Assert.Contains(issues, item => item.Code == "schema.minimum");
-        Assert.Contains(issues, item => item.Code == "schema.maximum");
-        Assert.Contains(issues, item => item.Code == "schema.additionalProperties");
+        Assert.Contains(issues, item => item.Code == "instance.enum");
+        Assert.Contains(issues, item => item.Code == "instance.array.bounds");
+        Assert.Contains(issues, item => item.Code == "instance.number.bounds");
+        Assert.Contains(issues, item => item.Code == "instance.additional");
     }
 
     [Fact]
@@ -63,6 +62,6 @@ public sealed class SecretAndSchemaTests
         validator.Validate(value, schema.RootElement, "$", false, after);
 
         Assert.Empty(before);
-        Assert.Contains(after, item => item.Code == "schema.type");
+        Assert.Contains(after, item => item.Code == "instance.type");
     }
 }

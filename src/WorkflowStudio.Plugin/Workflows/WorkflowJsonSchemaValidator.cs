@@ -1,6 +1,5 @@
-using System.Globalization;
-using System.Text;
 using System.Text.Json;
+using MyAvaloniaManagement.PluginSdk.Workflow;
 
 namespace WorkflowStudio.Workflows;
 
@@ -13,12 +12,16 @@ public interface IWorkflowJsonSchemaValidator
         bool allowReferenceTokens,
         IList<WorkflowValidationIssue> issues);
 }
-/// <summary>
-/// 实现 SDK 3.1 Profile 中 Studio 编辑器实际需要的确定性子集。Host 仍会在调用边界做最终治理；
-/// 此处的价值是让错误在点击执行前以字段路径展示，而不是取代 Host 的安全校验。
-/// </summary>
+
+/// <summary>把共享 Schema 校验器适配到允许引用占位符的 Studio 编辑期模型。</summary>
+/// <remarks>
+/// 常量叶节点完全交给 PluginSdk.Workflow；对象和数组只负责绕过合法引用占位符并继续遍历，
+/// 因而 Unicode、decimal 和边界语义不会再由 Studio 单独实现。
+/// </remarks>
 public sealed class WorkflowJsonSchemaValidator : IWorkflowJsonSchemaValidator
 {
+    private readonly WorkflowSchemaValidator _shared = new();
+
     public void Validate(
         JsonElement value,
         JsonElement schema,
@@ -31,93 +34,22 @@ public sealed class WorkflowJsonSchemaValidator : IWorkflowJsonSchemaValidator
         {
             return;
         }
-
-        var expected = schema.TryGetProperty("type", out var typeElement)
-            ? typeElement.GetString()
-            : null;
-        if (!MatchesType(value, expected))
-        {
-            issues.Add(new("schema.type", path, $"值类型必须是 {expected}。"));
-            return;
-        }
-
-        if (schema.TryGetProperty("enum", out var enumElement) &&
-            !enumElement.EnumerateArray().Any(item => JsonElement.DeepEquals(item, value)))
-        {
-            issues.Add(new("schema.enum", path, "值不在允许的枚举集合中。"));
-        }
-
-        if (value.ValueKind == JsonValueKind.String)
-        {
-            var text = value.GetString()!;
-            if (Encoding.UTF8.GetByteCount(text) > WorkflowStudioLimits.Default.MaximumStringBytes)
-            {
-                issues.Add(new("budget.string", path, "字符串超过 64 KiB 上限。"));
-            }
-            if (schema.TryGetProperty("minLength", out var min) && text.Length < min.GetInt32())
-            {
-                issues.Add(new("schema.minLength", path, $"字符串长度不能小于 {min.GetInt32()}。"));
-            }
-            if (schema.TryGetProperty("maxLength", out var max) && text.Length > max.GetInt32())
-            {
-                issues.Add(new("schema.maxLength", path, $"字符串长度不能大于 {max.GetInt32()}。"));
-            }
-        }
-        else if (value.ValueKind == JsonValueKind.Object)
+        if (value.ValueKind == JsonValueKind.Object && SchemaType(schema) == "object")
         {
             ValidateObject(value, schema, path, allowReferenceTokens, issues);
+            return;
         }
-        else if (value.ValueKind == JsonValueKind.Array)
+        if (value.ValueKind == JsonValueKind.Array && SchemaType(schema) == "array")
         {
             ValidateArray(value, schema, path, allowReferenceTokens, issues);
+            return;
         }
-        else if (value.ValueKind == JsonValueKind.Number)
-        {
-            ValidateNumber(value, schema, path, issues);
-        }
-    }
-
-    internal static bool TryResolveSchemaPath(
-        JsonElement schema,
-        IReadOnlyList<string> path,
-        out JsonElement resolved)
-    {
-        resolved = schema;
-        foreach (var segment in path)
-        {
-            var type = resolved.TryGetProperty("type", out var typeElement) ? typeElement.GetString() : null;
-            if (type == "object" && resolved.TryGetProperty("properties", out var properties) &&
-                properties.TryGetProperty(segment, out var propertySchema))
-            {
-                resolved = propertySchema;
-            }
-            else if (type == "array" && resolved.TryGetProperty("items", out var itemSchema))
-            {
-                resolved = itemSchema;
-            }
-            else
-            {
-                return false;
-            }
-        }
-        return true;
+        AppendShared(_shared.ValidateInstance(
+            schema, value, WorkflowSchemaProfile.MaximumInputBytes, path), issues);
     }
 
     internal static string? SchemaType(JsonElement schema) =>
         schema.TryGetProperty("type", out var type) ? type.GetString() : null;
-
-    private static bool MatchesType(JsonElement value, string? expected) => expected switch
-    {
-        null => true,
-        "object" => value.ValueKind == JsonValueKind.Object,
-        "array" => value.ValueKind == JsonValueKind.Array,
-        "string" => value.ValueKind == JsonValueKind.String,
-        "integer" => value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out _),
-        "number" => value.ValueKind == JsonValueKind.Number,
-        "boolean" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
-        "null" => value.ValueKind == JsonValueKind.Null,
-        _ => false,
-    };
 
     private void ValidateObject(
         JsonElement value,
@@ -126,6 +58,7 @@ public sealed class WorkflowJsonSchemaValidator : IWorkflowJsonSchemaValidator
         bool allowReferences,
         IList<WorkflowValidationIssue> issues)
     {
+        var properties = schema.GetProperty("properties");
         var required = schema.TryGetProperty("required", out var requiredElement)
             ? requiredElement.EnumerateArray().Select(item => item.GetString()!).ToHashSet(StringComparer.Ordinal)
             : [];
@@ -133,20 +66,25 @@ public sealed class WorkflowJsonSchemaValidator : IWorkflowJsonSchemaValidator
         {
             if (!value.TryGetProperty(name, out _))
             {
-                issues.Add(new("schema.required", path + "." + name, "缺少必需字段。"));
+                AddError(issues, "instance.required", path + "." + name, "缺少必需字段。");
             }
         }
-        var hasProperties = schema.TryGetProperty("properties", out var properties);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var property in value.EnumerateObject())
         {
-            if (hasProperties && properties.TryGetProperty(property.Name, out var propertySchema))
+            if (!seen.Add(property.Name))
             {
-                Validate(property.Value, propertySchema, path + "." + property.Name, allowReferences, issues);
+                AddError(issues, "instance.duplicate", path + "." + property.Name, "字段重复。");
             }
-            else if (schema.TryGetProperty("additionalProperties", out var additional) &&
-                     additional.ValueKind == JsonValueKind.False)
+            else if (!properties.TryGetProperty(property.Name, out var propertySchema))
             {
-                issues.Add(new("schema.additionalProperties", path + "." + property.Name, "字段不在 Action Schema 中。"));
+                AddError(issues, "instance.additional", path + "." + property.Name,
+                    "字段不在 Action Schema 中。");
+            }
+            else
+            {
+                Validate(property.Value, propertySchema, path + "." + property.Name,
+                    allowReferences, issues);
             }
         }
     }
@@ -159,38 +97,33 @@ public sealed class WorkflowJsonSchemaValidator : IWorkflowJsonSchemaValidator
         IList<WorkflowValidationIssue> issues)
     {
         var count = value.GetArrayLength();
-        if (schema.TryGetProperty("maxItems", out var max) && count > max.GetInt32())
+        var maximum = schema.GetProperty("maxItems").GetInt32();
+        var minimum = schema.TryGetProperty("minItems", out var min) ? min.GetInt32() : 0;
+        if (count < minimum || count > maximum)
         {
-            issues.Add(new("schema.maxItems", path, $"数组项数不能超过 {max.GetInt32()}。"));
+            AddError(issues, "instance.array.bounds", path, "数组项数不符合 Action Schema。");
         }
-        if (schema.TryGetProperty("minItems", out var min) && count < min.GetInt32())
+        var itemSchema = schema.GetProperty("items");
+        var index = 0;
+        foreach (var item in value.EnumerateArray())
         {
-            issues.Add(new("schema.minItems", path, $"数组项数不能少于 {min.GetInt32()}。"));
-        }
-        if (schema.TryGetProperty("items", out var itemSchema))
-        {
-            var index = 0;
-            foreach (var item in value.EnumerateArray())
-            {
-                Validate(item, itemSchema, $"{path}[{index++}]", allowReferences, issues);
-            }
+            Validate(item, itemSchema, $"{path}[{index++}]", allowReferences, issues);
         }
     }
 
-    private static void ValidateNumber(
-        JsonElement value,
-        JsonElement schema,
-        string path,
+    private static void AppendShared(
+        WorkflowSchemaValidationResult result,
         IList<WorkflowValidationIssue> issues)
     {
-        var number = value.GetDecimal();
-        if (schema.TryGetProperty("minimum", out var min) && number < min.GetDecimal())
+        foreach (var issue in result.Issues)
         {
-            issues.Add(new("schema.minimum", path, $"数值不能小于 {min.GetRawText()}。"));
-        }
-        if (schema.TryGetProperty("maximum", out var max) && number > max.GetDecimal())
-        {
-            issues.Add(new("schema.maximum", path, $"数值不能大于 {max.GetRawText()}。"));
+            AddError(issues, issue.Code, issue.Path, issue.Message);
         }
     }
+
+    private static void AddError(
+        IList<WorkflowValidationIssue> issues,
+        string code,
+        string path,
+        string message) => issues.Add(new(WorkflowValidationSeverity.Error, code, path, message));
 }

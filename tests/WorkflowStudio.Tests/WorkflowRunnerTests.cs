@@ -32,7 +32,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         var catalog = _catalog.Capture();
 
         var result = await _runner.RunAsync(
-            TestActions.ValidDefinition(catalog.Revision), progress: null, CancellationToken.None);
+            TestActions.ValidDefinition(catalog), progress: null, CancellationToken.None);
 
         Assert.True(result.Succeeded);
         Assert.Equal(3, result.Entries.Count);
@@ -55,7 +55,7 @@ public sealed class WorkflowRunnerTests : IDisposable
                 WorkflowActionInvocationStatus.Failed,
                 output: null,
                 new WorkflowActionFailure("test.failed", "脱敏失败")));
-        var definition = TestActions.ValidDefinition(_catalog.Capture().Revision);
+        var definition = TestActions.ValidDefinition(_catalog.Capture());
 
         var result = await _runner.RunAsync(definition, null, CancellationToken.None);
 
@@ -77,7 +77,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
 
         var result = await _runner.RunAsync(
-            TestActions.ValidDefinition(_catalog.Capture().Revision), null, cancellation.Token);
+            TestActions.ValidDefinition(_catalog.Capture()), null, cancellation.Token);
 
         Assert.True(result.Cancelled);
         Assert.False(result.Succeeded);
@@ -87,13 +87,19 @@ public sealed class WorkflowRunnerTests : IDisposable
     [Fact]
     public async Task 执行前目录变化会拒绝且不会创建Run()
     {
-        var definition = TestActions.ValidDefinition(_catalog.Capture().Revision);
-        _gateway.Actions = [TestActions.Generate("变化"), TestActions.Format()];
+        var definition = TestActions.ValidDefinition(_catalog.Capture());
+        _gateway.Actions = [TestActions.Generate(), TestActions.Descriptor(
+            TestActions.FormatId, "格式化", "契约变化",
+            """{"type":"object","properties":{"value":{"type":"integer"},"secret":{"type":"string","maxLength":64}},"required":["value","secret"],"additionalProperties":false}""",
+            """{"type":"object","properties":{"formatted":{"type":"string","maxLength":64}},"required":["formatted"],"additionalProperties":false}""",
+            WorkflowActionRiskFlags.HandlesSecret,
+            WorkflowActionConfirmationPolicy.OncePerRun,
+            ["/secret"])];
 
         var exception = await Assert.ThrowsAsync<WorkflowValidationException>(() =>
             _runner.RunAsync(definition, null, CancellationToken.None));
 
-        Assert.Contains(exception.Result.Issues, item => item.Code == "catalog.stale");
+        Assert.Contains(exception.Result.Issues, item => item.Code == "catalog.contract-stale");
         Assert.Equal(0, _gateway.RunsCreated);
     }
 
@@ -110,7 +116,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         };
 
         await Assert.ThrowsAsync<WorkflowValidationException>(() => _runner.RunAsync(
-            TestActions.ValidDefinition(_catalog.Capture().Revision), null, CancellationToken.None));
+            TestActions.ValidDefinition(_catalog.Capture()), null, CancellationToken.None));
 
         Assert.Equal(1, _gateway.RunsDisposed);
         Assert.Single(_gateway.Requests, item => item.ActionId.Value == TestActions.GenerateId);
@@ -123,7 +129,7 @@ public sealed class WorkflowRunnerTests : IDisposable
         var progress = new InlineProgress<WorkflowRunProgress>(observed.Enqueue);
 
         var result = await _runner.RunAsync(
-            TestActions.ValidDefinition(_catalog.Capture().Revision), progress, CancellationToken.None);
+            TestActions.ValidDefinition(_catalog.Capture()), progress, CancellationToken.None);
         await Task.Delay(50);
 
         Assert.True(result.Succeeded);
@@ -149,15 +155,37 @@ public sealed class WorkflowRunnerTests : IDisposable
         var resolved = _resolver.ResolveArguments(
             arguments,
             outputs,
-            JsonSerializer.SerializeToElement(new { value = "current" }));
+            JsonSerializer.SerializeToElement(new { value = "current" }),
+            "$.arguments");
 
         Assert.Equal("b", resolved.GetProperty("fromStep").GetString());
         Assert.Equal("current", resolved.GetProperty("fromItem").GetString());
         Assert.Equal("TOP-SECRET-CANARY", resolved.GetProperty("secret").GetString());
-        Assert.Throws<InvalidOperationException>(() =>
-            _resolver.ResolveToken("${previous.result.missing}", outputs, null));
-        Assert.Throws<InvalidOperationException>(() =>
-            _resolver.ResolveToken("not-a-token", outputs, null));
+        Assert.Throws<WorkflowReferenceResolutionException>(() =>
+            _resolver.ResolveToken("${previous.result.missing}", outputs, null, "$.reference"));
+        Assert.Throws<WorkflowReferenceResolutionException>(() =>
+            _resolver.ResolveToken("not-a-token", outputs, null, "$.reference"));
+    }
+
+    [Fact]
+    public async Task Fake违反required输出时引用失败结构化返回且不伪造Invocation()
+    {
+        _gateway.InvokeOverride = (request, _) => Task.FromResult(
+            new WorkflowActionInvocationResult(
+                Guid.NewGuid(), WorkflowActionInvocationStatus.Succeeded,
+                request.ActionId.Value == TestActions.GenerateId
+                    ? JsonSerializer.SerializeToElement(new { })
+                    : JsonSerializer.SerializeToElement(new { formatted = "x" }),
+                null));
+
+        var result = await _runner.RunAsync(
+            TestActions.ValidDefinition(_catalog.Capture()), null, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.NotNull(result.Failure);
+        Assert.Equal("reference.path-missing", result.Failure.Code);
+        Assert.Single(result.Entries);
+        Assert.Equal("generate", result.Entries[0].StepId);
     }
 
     public void Dispose() => _secrets.Dispose();

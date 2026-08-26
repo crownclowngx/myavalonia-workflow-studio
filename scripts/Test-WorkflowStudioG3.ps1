@@ -2,13 +2,14 @@
 param(
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Release',
-    [string]$CandidateHostRoot = $env:MYAVALONIA_CANDIDATE_HOST_ROOT
+    [string]$CandidateHostRoot = $env:MYAVALONIA_CANDIDATE_HOST_ROOT,
+    [string]$CandidateFeed
 )
 
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$resultRoot = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'artifacts\test-results\WorkflowStudioG3'))
+$resultRoot = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'artifacts\test-results\WorkflowStudioG31'))
 $allowedRoot = [IO.Path]::GetFullPath((Join-Path $repositoryRoot 'artifacts\test-results'))
 $solution = Join-Path $repositoryRoot 'WorkflowStudio.slnx'
 $pluginProject = Join-Path $repositoryRoot 'src\WorkflowStudio.Plugin\WorkflowStudio.Plugin.csproj'
@@ -157,7 +158,23 @@ try {
     Assert-True (-not (($allTrackedText -join "`n") -match 'avalonia_dock_simple_test|ProjectReference[^\r\n]*MyAvaloniaManagement')) `
         '新仓库出现 Host 源码路径或跨仓库 ProjectReference。'
 
-    Invoke-Checked dotnet @('restore', $solution, '--locked-mode')
+    $nugetConfig = Join-Path $resultRoot 'NuGet.G3.1.config'
+    $candidateSource = ''
+    if (-not [string]::IsNullOrWhiteSpace($CandidateFeed)) {
+        $candidateFeedPath = [IO.Path]::GetFullPath($CandidateFeed)
+        Assert-True (Test-Path -LiteralPath $candidateFeedPath -PathType Container) `
+            "候选 NuGet feed 不存在：$candidateFeedPath。"
+        $escapedFeed = [Security.SecurityElement]::Escape($candidateFeedPath)
+        $candidateSource = "    <add key=`"G31Candidate`" value=`"$escapedFeed`" />`r`n"
+    }
+    $configText = "<?xml version=`"1.0`" encoding=`"utf-8`"?>`r`n" +
+        "<configuration>`r`n  <packageSources>`r`n    <clear />`r`n" +
+        $candidateSource +
+        "    <add key=`"nuget.org`" value=`"https://api.nuget.org/v3/index.json`" protocolVersion=`"3`" />`r`n" +
+        "  </packageSources>`r`n</configuration>`r`n"
+    [IO.File]::WriteAllText($nugetConfig, $configText, [Text.UTF8Encoding]::new($false))
+    $restoreArguments = @('restore', $solution, '--locked-mode', '--configfile', $nugetConfig)
+    Invoke-Checked dotnet $restoreArguments
     Invoke-Checked dotnet @('build', $solution, '-c', $Configuration, '--no-restore', '-warnaserror')
     Invoke-Checked dotnet @('format', $solution, '--verify-no-changes', '--no-restore', '--verbosity', 'minimal')
 
@@ -184,6 +201,29 @@ try {
     $branchCoverage = [Math]::Round([double]$coverage.coverage.'branch-rate' * 100, 2)
     Assert-True ($lineCoverage -ge 85) "行覆盖率 $lineCoverage% 低于 85%。"
     Assert-True ($branchCoverage -ge 75) "分支覆盖率 $branchCoverage% 低于 75%。"
+
+    $criticalFiles = @(
+        'Workflows\WorkflowActionCatalog.cs',
+        'Workflows\WorkflowDefinitionCodec.cs',
+        'Workflows\WorkflowDefinitionValidator.cs',
+        'Workflows\WorkflowReferenceResolver.cs',
+        'Workflows\WorkflowRunner.cs')
+    $classes = @($coverage.coverage.packages.package.classes.class)
+    foreach ($criticalFile in $criticalFiles) {
+        $lines = @($classes | Where-Object { $_.filename -ceq $criticalFile } |
+            ForEach-Object { $_.lines.line } |
+            Group-Object number |
+            ForEach-Object {
+                [pscustomobject]@{
+                    Hits = [int](($_.Group | Measure-Object -Property hits -Maximum).Maximum)
+                }
+            })
+        Assert-True ($lines.Count -gt 0) "覆盖率报告缺少协议关键文件：$criticalFile。"
+        $covered = @($lines | Where-Object { $_.Hits -gt 0 }).Count
+        $criticalCoverage = [Math]::Round(100 * $covered / $lines.Count, 2)
+        Assert-True ($criticalCoverage -ge 90) `
+            "协议关键文件 $criticalFile 行覆盖率 $criticalCoverage% 低于 90%。"
+    }
 
     $selfTestLog = Join-Path $resultRoot 'standalone-self-test.log'
     $selfOutput = @(& dotnet run --project $standaloneProject -c $Configuration --no-build --no-restore -- --g3-self-test 2>&1)
@@ -226,10 +266,10 @@ try {
     Assert-True (
         [int]$manifest.schemaVersion -eq 2 -and
         $manifest.pluginId -ceq 'myavalonia.plugin.workflow-studio' -and
-        $manifest.pluginVersion -ceq '1.0.0' -and
+        $manifest.pluginVersion -ceq '1.1.0' -and
         $manifest.entryPoint.assembly -ceq 'WorkflowStudio.Plugin.dll' -and
         $manifest.entryPoint.type -ceq 'WorkflowStudio.Plugin.WorkflowStudioModule' -and
-        $manifest.sdk.minInclusive -ceq '3.1.0' -and
+        $manifest.sdk.minInclusive -ceq '3.2.0' -and
         $manifest.sdk.maxExclusive -ceq '4.0.0') `
         '正式 ZIP 的 manifest 身份、入口、版本或 SDK 区间不正确。'
 
@@ -250,7 +290,7 @@ try {
 
     $summary = [ordered]@{
         schemaVersion = 1
-        stage = 'G3'
+        stage = 'G3.1'
         configuration = $Configuration
         passed = [int]$counters.passed
         failed = [int]$counters.failed
@@ -274,7 +314,7 @@ try {
         (Join-Path $resultRoot 'summary.json'),
         ($summary | ConvertTo-Json -Depth 10),
         [Text.UTF8Encoding]::new($false))
-    Write-Host "Workflow Studio G3 本地非发布门禁通过：$($summary.passed) 项，覆盖率 $lineCoverage% / $branchCoverage%。"
+    Write-Host "Workflow Studio G3.1 专项门禁通过：$($summary.passed) 项，覆盖率 $lineCoverage% / $branchCoverage%。"
 }
 finally {
     Pop-Location

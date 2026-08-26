@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MyAvaloniaManagement.PluginSdk;
+using MyAvaloniaManagement.PluginSdk.Workflow;
 using WorkflowStudio.Workflows;
 
 namespace WorkflowStudio.Tests;
@@ -14,7 +15,7 @@ internal static class TestActions
         displayName,
         "生成测试项。",
         """{"type":"object","properties":{"count":{"type":"integer","minimum":1,"maximum":3},"prefix":{"type":"string","minLength":1,"maxLength":16}},"required":["count","prefix"],"additionalProperties":false}""",
-        """{"type":"object","properties":{"items":{"type":"array","maxItems":3,"items":{"type":"object","properties":{"value":{"type":"string","maxLength":32}},"required":["value"],"additionalProperties":false}}},"required":["items"],"additionalProperties":false}""",
+        """{"type":"object","properties":{"items":{"type":"array","maxItems":3,"items":{"type":"object","properties":{"value":{"type":"string","minLength":1,"maxLength":32}},"required":["value"],"additionalProperties":false}}},"required":["items"],"additionalProperties":false}""",
         WorkflowActionRiskFlags.None,
         WorkflowActionConfirmationPolicy.Never);
 
@@ -46,9 +47,10 @@ internal static class TestActions
             risks, confirmation, sensitive);
     }
 
-    internal static WorkflowDefinitionV1 ValidDefinition(string revision) => new(
-        1,
-        revision,
+    internal static WorkflowDefinitionV2 ValidDefinition(WorkflowActionCatalogSnapshot catalog) => new(
+        2,
+        catalog.ContractRevision,
+        catalog.PresentationRevision,
         "测试闭环",
         [
             new WorkflowStepDefinition(
@@ -151,7 +153,9 @@ internal static class TestServiceFactory
         var secrets = new SessionSecretStore();
         var catalog = new WorkflowActionCatalogProjection(gateway);
         var schema = new WorkflowJsonSchemaValidator();
-        var validator = new WorkflowDefinitionValidator(schema, secrets);
+        var shared = new WorkflowSchemaValidator();
+        var validator = new WorkflowDefinitionValidator(
+            schema, secrets, new WorkflowReferenceTypeSystem(), shared);
         var resolver = new WorkflowReferenceResolver(secrets);
         var runner = new WorkflowRunner(gateway, catalog, validator, resolver, schema);
         return (catalog, new WorkflowDefinitionCodec(), validator, resolver, runner, secrets);

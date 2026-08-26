@@ -1,32 +1,39 @@
 using System.Collections.ObjectModel;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using MyAvaloniaManagement.PluginSdk;
+using MyAvaloniaManagement.PluginSdk.Workflow;
 
 namespace WorkflowStudio.Workflows;
 
+/// <summary>从 Host Gateway 捕获一次不可变 Action 目录快照。</summary>
 public interface IWorkflowActionCatalogProjection
 {
     WorkflowActionCatalogSnapshot Capture();
 }
-/// <summary>表示同一次 Gateway 目录读取产生的不可变动作集合与 Studio revision。</summary>
+/// <summary>表示同一次 Gateway 目录读取产生的不可变动作集合与双 revision。</summary>
+/// <remarks>
+/// ContractRevision 参与定义可执行性和授权指纹；PresentationRevision 只用于提示名称、说明或
+/// Schema description 已更新。二者必须由同一 actions 快照一次计算，不能跨目录读取拼接。
+/// </remarks>
 public sealed class WorkflowActionCatalogSnapshot
 {
     private readonly IReadOnlyDictionary<string, WorkflowActionDescriptor> _byId;
 
     public WorkflowActionCatalogSnapshot(
-        string revision,
+        string contractRevision,
+        string presentationRevision,
         IReadOnlyList<WorkflowActionDescriptor> actions)
     {
-        Revision = revision ?? throw new ArgumentNullException(nameof(revision));
+        ContractRevision = contractRevision ?? throw new ArgumentNullException(nameof(contractRevision));
+        PresentationRevision = presentationRevision ?? throw new ArgumentNullException(nameof(presentationRevision));
         ArgumentNullException.ThrowIfNull(actions);
         Actions = new ReadOnlyCollection<WorkflowActionDescriptor>(actions.ToArray());
         _byId = new ReadOnlyDictionary<string, WorkflowActionDescriptor>(
             actions.ToDictionary(item => item.Id.Value, StringComparer.Ordinal));
     }
 
-    public string Revision { get; }
+    public string ContractRevision { get; }
+    public string PresentationRevision { get; }
     public IReadOnlyList<WorkflowActionDescriptor> Actions { get; }
 
     public bool TryGet(WorkflowActionId actionId, out WorkflowActionDescriptor? descriptor) =>
@@ -34,7 +41,7 @@ public sealed class WorkflowActionCatalogSnapshot
 }
 
 /// <summary>
-/// 把公开 Descriptor 投影为 Studio 所需的目录快照。revision 由规范 JSON 计算，不依赖对象地址、
+/// 把公开 Descriptor 投影为 Studio 所需的目录快照。revision 由共享规范算法计算，不依赖对象地址、
 /// 当前区域或 Gateway 返回顺序，因此相同目录在不同进程中得到相同结果。
 /// </summary>
 public sealed class WorkflowActionCatalogProjection(IWorkflowActionGateway gateway)
@@ -45,42 +52,11 @@ public sealed class WorkflowActionCatalogProjection(IWorkflowActionGateway gatew
         var actions = gateway.GetAvailableActions()
             .OrderBy(item => item.Id.Value, StringComparer.Ordinal)
             .ToArray();
-        var bytes = BuildCanonicalCatalog(actions);
+        var revisions = WorkflowCatalogRevisionCalculator.Calculate(actions);
         return new WorkflowActionCatalogSnapshot(
-            "sha256:" + Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),
+            revisions.ContractRevision,
+            revisions.PresentationRevision,
             actions);
-    }
-
-    internal static byte[] BuildCanonicalCatalog(IReadOnlyList<WorkflowActionDescriptor> actions)
-    {
-        using var stream = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(stream))
-        {
-            writer.WriteStartArray();
-            foreach (var action in actions)
-            {
-                writer.WriteStartObject();
-                writer.WriteString("id", action.Id.Value);
-                writer.WriteString("displayName", action.DisplayName);
-                writer.WriteString("description", action.Description);
-                writer.WritePropertyName("inputSchema");
-                WriteCanonicalJson(writer, action.InputSchema);
-                writer.WritePropertyName("outputSchema");
-                WriteCanonicalJson(writer, action.OutputSchema);
-                writer.WriteNumber("risks", (int)action.Risks);
-                writer.WriteNumber("confirmationPolicy", (int)action.ConfirmationPolicy);
-                writer.WritePropertyName("sensitiveInputPointers");
-                writer.WriteStartArray();
-                foreach (var pointer in action.SensitiveInputPointers.Order(StringComparer.Ordinal))
-                {
-                    writer.WriteStringValue(pointer);
-                }
-                writer.WriteEndArray();
-                writer.WriteEndObject();
-            }
-            writer.WriteEndArray();
-        }
-        return stream.ToArray();
     }
 
     internal static void WriteCanonicalJson(Utf8JsonWriter writer, JsonElement element)

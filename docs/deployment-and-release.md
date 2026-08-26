@@ -1,6 +1,7 @@
 # 临时部署、正式发布与验收
 
-> G3 当前只执行本地非发布验收。下文的正式发布说明来自模板，保留作未来发布阶段参考；G3 不调用
+> G3.1 当前只执行专项发布准备与候选 Host 验收；不调用 Windows CI、Windows Smoke 或 Host 产品发布门禁。
+> 下文的插件正式发布说明保留作未来 Host 产品发布阶段参考；G3.1 不发布 Host 产品或业务插件。
 > Release Acceptance、发布门禁、标签、签名或上传。
 
 部署分为开发期临时联调和正式 ZIP 发布。两者都必须使用 Build 包筛选出的干净插件目录，不能直接复制
@@ -105,8 +106,8 @@ dotnet msbuild src/WorkflowStudio.Plugin/WorkflowStudio.Plugin.csproj `
 
 ```text
 src/WorkflowStudio.Plugin/artifacts/managed-plugin-packages/
-├─ WorkflowStudio.Plugin-1.0.0-win-x64.zip
-└─ WorkflowStudio.Plugin-1.0.0-win-x64.manifest.json
+├─ WorkflowStudio.Plugin-1.1.0-win-x64.zip
+└─ WorkflowStudio.Plugin-1.1.0-win-x64.manifest.json
 ```
 
 ZIP 内保持 `Controls/WorkflowStudio/` 布局；同名外置 `.manifest.json` 记录 ZIP 和文件摘要。正式交付时让二者
@@ -123,15 +124,16 @@ Host 提供的导入入口；若由维护者手工解压，也必须保留 ZIP �
 - Host 没有报告共享程序集、私有依赖、入口类型或稳定 ID 错误；
 - 替换为正式 ZIP 后完整重启 Host，并再次完成一次关键业务流程。
 
-## G3 候选 Host 自动验收
+## G3.1 候选 Host 自动验收
 
 G3 专项入口接受一个已经构建好的候选 Host 输出目录，将其复制到 Git 忽略的隔离结果目录，删除隔离副本
 中的其他 Controls，解压本次确定性 ZIP，并设置隔离的 `MYAVALONIA_DATA_DIRECTORY`。随后使用 Host 已有的
 自动关闭启动政策运行真实程序，要求退出码为 0，且诊断中没有 Plugin、Extension 或 Workflow 错误。
 
 ```powershell
-pwsh -NoProfile -File .\scripts\Test-WorkflowStudioG3.ps1 `
+pwsh -NoProfile -File .\scripts\Test-WorkflowStudioG3.1.ps1 `
   -Configuration Release `
+  -CandidateFeed C:\Path\To\CandidateFeed `
   -CandidateHostRoot C:\Path\To\CandidateHost\bin\Release\net10.0
 ```
 
