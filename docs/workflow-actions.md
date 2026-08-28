@@ -27,7 +27,7 @@ Host 授权、ALC 或 Provider Scope。真实加载仍由 G3.1 门禁把正式 Z
 
 G3.1 的 Schema Profile、实例验证、保守可赋值、引用路径和双 revision 算法来自共享 Workflow SDK。
 正式插件只引用该契约，ZIP 不携带 `MyAvaloniaManagement.PluginSdk.Workflow.dll`；候选 Host 必须通过
-manifest 的 SDK 下限 `3.2.0` 保证默认 ALC 已提供 Workflow SDK 1.0.0。
+当前 manifest 的 SDK 下限 `3.3.0` 保证默认 ALC 已提供 Workbench Command 契约；Workflow SDK 仍为 `1.0.0`。
 
 ## 安全规则
 

@@ -2,7 +2,7 @@
 
 ## 严格根协议
 
-Workflow Studio 1.1.0 只接受以下根字段，字段缺失、未知、重复、`schemaVersion: 1` 或混合版本均返回
+Workflow Studio 1.2.0 只接受以下根字段，字段缺失、未知、重复、`schemaVersion: 1` 或混合版本均返回
 脱敏格式错误，不进入迁移分支：
 
 ```json

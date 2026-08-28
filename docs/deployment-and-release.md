@@ -1,7 +1,7 @@
 # 临时部署、正式发布与验收
 
-> G3.1 当前只执行专项发布准备与候选 Host 验收；不调用 Windows CI、Windows Smoke 或 Host 产品发布门禁。
-> 下文的插件正式发布说明保留作未来 Host 产品发布阶段参考；G3.1 不发布 Host 产品或业务插件。
+> G7 当前只执行本地开发与真实包 Host 验收；不调用 AIFLOW、Windows CI、Windows Smoke、Release
+> Acceptance、Host 发布门禁、标签、签名或上传。下文正式发布说明只作未来发布阶段参考。
 > Release Acceptance、发布门禁、标签、签名或上传。
 
 部署分为开发期临时联调和正式 ZIP 发布。两者都必须使用 Build 包筛选出的干净插件目录，不能直接复制
@@ -106,8 +106,8 @@ dotnet msbuild src/WorkflowStudio.Plugin/WorkflowStudio.Plugin.csproj `
 
 ```text
 src/WorkflowStudio.Plugin/artifacts/managed-plugin-packages/
-├─ WorkflowStudio.Plugin-1.1.0-win-x64.zip
-└─ WorkflowStudio.Plugin-1.1.0-win-x64.manifest.json
+├─ WorkflowStudio.Plugin-1.2.0-win-x64.zip
+└─ WorkflowStudio.Plugin-1.2.0-win-x64.manifest.json
 ```
 
 ZIP 内保持 `Controls/WorkflowStudio/` 布局；同名外置 `.manifest.json` 记录 ZIP 和文件摘要。正式交付时让二者
@@ -140,6 +140,17 @@ pwsh -NoProfile -File .\scripts\Test-WorkflowStudioG3.1.ps1 `
 该过程只写新仓库的 `artifacts/test-results/WorkflowStudioG3` 和临时 Host 副本，不写候选 Host 源码或原始
 输出。机器摘要中的 `aiflow`、`windowsCi`、`releaseAcceptance`、`releaseGate` 与 `publishable` 必须全部为
 `false`。
+
+## Workbench Command G7 非发布验收
+
+```powershell
+pwsh -NoProfile -File .\scripts\Test-WorkflowStudioG7.ps1 -Configuration Release
+```
+
+该入口使用只含 NuGet.org 的配置与隔离缓存完成 locked restore、Release 零警告构建、格式验证、单测/覆盖率、
+Standalone Fake Action 自检、两轮确定性 `1.2.0` ZIP、manifest/共享 SDK/Secret 和 Markdown 链接检查。Host
+仓库的 `scripts/Test-WorkbenchCommandG7.ps1` 再消费该真实 ZIP，验证独立 ALC、caller-bound Gateway、跨 ALC
+业务 Action、Host-owned 菜单/快捷键和两个 Studio Document。两入口都只产生本地测试制品，不形成发布资格。
 
 ## 常见注意事项
 

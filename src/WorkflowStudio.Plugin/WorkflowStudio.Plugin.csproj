@@ -4,10 +4,10 @@
     <ManagedPlugin>true</ManagedPlugin>
     <ManagedPluginId>myavalonia.plugin.workflow-studio</ManagedPluginId>
     <ManagedPluginDirectoryName>WorkflowStudio</ManagedPluginDirectoryName>
-    <PluginVersion>1.1.0</PluginVersion>
+    <PluginVersion>1.2.0</PluginVersion>
     <ManagedPluginRuntimeIdentifier>win-x64</ManagedPluginRuntimeIdentifier>
     <ManagedPluginEntryType>WorkflowStudio.Plugin.WorkflowStudioModule</ManagedPluginEntryType>
-    <ManagedPluginSdkMinInclusive>3.2.0</ManagedPluginSdkMinInclusive>
+    <ManagedPluginSdkMinInclusive>3.3.0</ManagedPluginSdkMinInclusive>
     <ManagedPluginSdkMaxExclusive>4.0.0</ManagedPluginSdkMaxExclusive>
   </PropertyGroup>
 
