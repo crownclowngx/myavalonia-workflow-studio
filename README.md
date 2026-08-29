@@ -4,7 +4,8 @@
 稳定 PluginId 为 `myavalonia.plugin.workflow-studio`。当前插件版本为 `1.2.0`，精确消费 Core/UI SDK
 `3.3.0`、Workflow SDK `1.0.0` 与 Build `1.1.2`。Workflow Action G3.1 已实现不依赖模型、API Key 或
 规划网络的手工工作流 MVP；Workbench Command G7 又把验证、运行和取消接入 Host 统一命令系统，原编辑器
-按钮与 Runner/Workflow Action 治理链保持不变。
+按钮与 Runner/Workflow Action 治理链保持不变。G10 已与 Host、ClassicGame 完成单轮完整跨仓本地封板，
+不形成发布资格。
 
 真实交付物只有 `src/WorkflowStudio.Plugin`。Standalone 复用同一份 Document、View 和业务服务，但只为
 公开 `IWorkflowActionGateway` 与 `IDocumentLifetime` 提供开发期 Fake；正式 ZIP 不包含 Fake、Standalone
@@ -34,6 +35,15 @@ pwsh -NoProfile -File .\scripts\Test-WorkflowStudioG7.ps1 -Configuration Release
 该入口只从 NuGet.org locked restore，执行零警告构建、54 项测试、覆盖率、Standalone Fake 闭环、两轮
 确定性 ZIP、manifest/共享 SDK/Secret/文档断言；不调用 AIFLOW、Windows CI/Smoke 或发布门禁。
 
+Workbench Command G10 本仓包装门禁：
+
+```powershell
+pwsh -NoProfile -File .\scripts\Test-WorkflowStudioG10.ps1 -Configuration Release
+```
+
+它复用 G7 叶子规则并向 Host G10 提供稳定摘要；跨仓总入口同时消费 ClassicGame 实体包，仍固定
+`aiflow=false`、`windowsSmoke=false`、`releaseGate=false`、`publishable=false`。
+
 完整 G3.1 本地非发布门禁需要一个已构建的候选 Host 输出目录和隔离候选 feed：
 
 ```powershell
@@ -54,5 +64,6 @@ Secret 扫描和隔离真实 Host 启动。它不调用 AIFLOW、Windows CI、Re
 - [Workflow Action 与 Fake/真实 Gateway 边界](docs/workflow-actions.md)
 - [Workbench Command 三命令设计](docs/workbench-commands.md)
 - [Workbench Command G7 专用实施记录](docs/plan-history/workbench-command/g7-workflow-studio-three-real-commands.md)
+- [Workbench Command G10 本地封板记录](docs/plan-history/workbench-command/g10-workflow-studio-local-sealing.md)
 - [G3.1 专用实施记录](docs/plan-history/workflow-action/g3.1-protocol-consistency-and-reference-safety.md)
 - [部署与非发布验收](docs/deployment-and-release.md)

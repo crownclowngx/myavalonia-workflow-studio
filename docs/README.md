@@ -1,6 +1,6 @@
 # Workflow Studio 文档入口
 
-> 状态：Workflow Action G3.1 与 Workbench Command G7 已实现；当前为本地开发和真实 Host 包验收基线。
+> 状态：Workflow Action G3.1、Workbench Command G7 与 G10 本地封板已完成；当前为非发布基线。
 
 本仓库位于 Host 仓库之外，只通过精确版本的 Core/UI SDK `3.3.0`、Workflow SDK `1.0.0` 与 Build `1.1.2`
 相交。`WorkflowStudio.slnx` 不引用 Host 源码；Host 只消费构建生成的真实插件 ZIP。
@@ -12,10 +12,11 @@
 | [Workflow Action 接入](workflow-actions.md) | Consumer 注册、Standalone Fake 与真实 caller-bound Gateway |
 | [Workbench Command 三命令设计](workbench-commands.md) | Validate/Run/Cancel 身份、状态、执行链、SOLID 与生命周期 |
 | [项目和窗口职责](project-and-window-responsibilities.md) | 三项目所有权、SOLID 划分与关闭顺序 |
-| [部署与非发布验收](deployment-and-release.md) | 本地 ZIP、真实 Host 和 G3.1/G7 专项门禁 |
+| [部署与非发布验收](deployment-and-release.md) | 本地 ZIP、真实 Host 和 G3.1/G7/G10 专项门禁 |
 | [G3 专用实施记录](plan-history/workflow-action/g3-workflow-studio-fake-action-loop.md) | 模板事实、测试矩阵、机器摘要与回滚边界 |
 | [G3.1 专用实施记录](plan-history/workflow-action/g3.1-protocol-consistency-and-reference-safety.md) | 共享 SDK、v2 硬切、静态引用与门禁证据 |
 | [Workbench Command G7 专用记录](plan-history/workbench-command/g7-workflow-studio-three-real-commands.md) | 三条真实命令、真实包集成、覆盖率与非发布边界 |
+| [Workbench Command G10 本地封板](plan-history/workbench-command/g10-workflow-studio-local-sealing.md) | G7 事实复核、跨仓组合、SOLID 与非发布边界 |
 
 ## 当前能力
 

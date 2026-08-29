@@ -152,6 +152,16 @@ Standalone Fake Action 自检、两轮确定性 `1.2.0` ZIP、manifest/共享 SD
 仓库的 `scripts/Test-WorkbenchCommandG7.ps1` 再消费该真实 ZIP，验证独立 ALC、caller-bound Gateway、跨 ALC
 业务 Action、Host-owned 菜单/快捷键和两个 Studio Document。两入口都只产生本地测试制品，不形成发布资格。
 
+## Workbench Command G10 本地封板
+
+```powershell
+pwsh -NoProfile -File .\scripts\Test-WorkflowStudioG10.ps1 -Configuration Release
+```
+
+本入口让 G7 继续拥有还原、构建、覆盖率和确定性 ZIP 规则，只复核摘要、版本、manifest、文档与非发布标记。
+Host G10 会在两个独立工作树副本中调用它，并把本包与 ClassicGame 同时加载。它不调用 AIFLOW、Windows
+CI/Smoke、Release Acceptance 或发布门禁，`publishable=false`。
+
 ## 常见注意事项
 
 - Standalone 正常不代表 Host 一定能加载，优先检查正式 manifest、依赖边界和 SDK 区间。

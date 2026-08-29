@@ -1,6 +1,6 @@
 # Workflow Studio Workbench Command 设计
 
-> 当前实现：Workbench Command G7，Workflow Studio `1.2.0`，Core/UI SDK `3.3.0`。
+> 当前实现：Workbench Command G10 本地封板；Workflow Studio `1.2.0`，Core/UI SDK `3.3.0`。
 
 ## 1. 三条命令
 
@@ -68,4 +68,5 @@ Standalone Fake 闭环、两轮确定性 ZIP、manifest、共享 SDK 排除、Se
 G7 是本地开发门禁：`aiflow=false`，不调用 Windows CI/Smoke、Release Acceptance 或发布门禁，也不上传、
 签名或创建 tag。
 
-完整实数与回滚边界见 [G7 专用实施记录](plan-history/workbench-command/g7-workflow-studio-three-real-commands.md)。
+完整 G7 实数与回滚边界见 [G7 专用实施记录](plan-history/workbench-command/g7-workflow-studio-three-real-commands.md)；
+跨仓单轮完整复核见 [G10 本地封板记录](plan-history/workbench-command/g10-workflow-studio-local-sealing.md)。
