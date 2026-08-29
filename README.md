@@ -26,36 +26,33 @@ dotnet run --project .\src\WorkflowStudio.Standalone -c Release
 dotnet run --project .\src\WorkflowStudio.Standalone -c Release -- --g3-self-test
 ```
 
-Workbench Command G7 独立非发布门禁：
+跨仓 Workflow/Workbench 验证由主仓统一 Gate 执行，不再由本仓维护 PowerShell 封板脚本：
 
 ```powershell
-pwsh -NoProfile -File .\scripts\Test-WorkflowStudioG7.ps1 -Configuration Release
+dotnet run --project tools/MyAvaloniaManagement.Gate -- verify --scope workflow
+dotnet run --project tools/MyAvaloniaManagement.Gate -- verify --scope workbench
 ```
 
-该入口只从 NuGet.org locked restore，执行零警告构建、54 项测试、覆盖率、Standalone Fake 闭环、两轮
-确定性 ZIP、manifest/共享 SDK/Secret/文档断言；不调用 AIFLOW、Windows CI/Smoke 或发布门禁。
-
-Workbench Command G10 本仓包装门禁：
+上述命令在 `avalonia_dock_simple_test` 主仓根目录运行；若本仓不位于默认目录，可显式传入：
 
 ```powershell
-pwsh -NoProfile -File .\scripts\Test-WorkflowStudioG10.ps1 -Configuration Release
+dotnet run --project tools/MyAvaloniaManagement.Gate -- verify --scope workflow `
+  --workflow-studio C:\Path\To\myavalonia-workflow-studio
 ```
 
-它复用 G7 叶子规则并向 Host G10 提供稳定摘要；跨仓总入口同时消费 ClassicGame 实体包，仍固定
-`aiflow=false`、`windowsSmoke=false`、`releaseGate=false`、`publishable=false`。
+正式 `seal` 会直接运行本仓 locked restore、零警告构建、测试、覆盖率、Standalone Fake 闭环和两次确定性
+ZIP，并把当前工作树内容指纹写入主仓统一证据。本仓的历史 G3/G7/G10 命令仅保留在实施记录中。
 
-完整 G3.1 本地非发布门禁需要一个已构建的候选 Host 输出目录和隔离候选 feed：
+单独开发本仓仍可直接运行标准 .NET 命令和无窗口 Fake 自检：
 
 ```powershell
-pwsh -NoProfile -File .\scripts\Test-WorkflowStudioG3.1.ps1 `
-  -Configuration Release `
-  -CandidateFeed C:\Path\To\CandidateFeed `
-  -CandidateHostRoot C:\Path\To\CandidateHost\bin\Release\net10.0
+dotnet restore .\WorkflowStudio.slnx --locked-mode
+dotnet build .\WorkflowStudio.slnx -c Release --no-restore -warnaserror
+dotnet test .\WorkflowStudio.slnx -c Release --no-build --no-restore
+dotnet run --project .\src\WorkflowStudio.Standalone -c Release -- --g3-self-test
 ```
 
-该入口执行 locked restore、零警告构建、测试与 85%/75% 覆盖率、Standalone 自检、两次确定性 ZIP、
-Secret 扫描和隔离真实 Host 启动。它不调用 AIFLOW、Windows CI、Release Acceptance、发布门禁、标签、
-签名或上传。
+Gate 不调用外部发布、签名、上传或标签操作。
 
 ## 文档
 

@@ -1,5 +1,8 @@
 # 临时部署、正式发布与验收
 
+> 当前跨仓验收统一由主仓 `tools/MyAvaloniaManagement.Gate` 执行。本文中的 `scripts/*.ps1` 命令是历史记录，
+> 已退役；使用方式见本仓 README。
+
 > G7 当前只执行本地开发与真实包 Host 验收；不调用 AIFLOW、Windows CI、Windows Smoke、Release
 > Acceptance、Host 发布门禁、标签、签名或上传。下文正式发布说明只作未来发布阶段参考。
 > Release Acceptance、发布门禁、标签、签名或上传。

@@ -1,6 +1,7 @@
 # Workflow Studio Workbench Command 设计
 
 > 当前实现：Workbench Command G10 本地封板；Workflow Studio `1.2.0`，Core/UI SDK `3.3.0`。
+> 当前验收统一从主仓运行 `dotnet run --project tools/MyAvaloniaManagement.Gate -- verify --scope workbench`；旧脚本命令已退役。
 
 ## 1. 三条命令
 
@@ -55,15 +56,15 @@ ClosingToken；快速重复执行由实例级 `Interlocked` 门闩拒绝。
 
 ## 5. 测试与门禁
 
-Studio 独立入口：
+从主仓执行统一入口：
 
 ```powershell
-pwsh -NoProfile -File .\scripts\Test-WorkflowStudioG7.ps1 -Configuration Release
+dotnet run --project tools/MyAvaloniaManagement.Gate -- verify --scope workbench
 ```
 
-它验证精确 NuGet/lock file、零警告构建、格式、54 项单测、85%/75% 总覆盖率、MainDocument 至少 90%、
-Standalone Fake 闭环、两轮确定性 ZIP、manifest、共享 SDK 排除、Secret canary 和文档链接。Host 侧另通过
+它验证精确 NuGet/lock file、零警告构建、54 项单测、Standalone Fake 闭环、manifest、共享 SDK 排除和文档链接。Host 侧另通过
 真实 ZIP、生产 Loader、独立 ALC、两个 Document Scope、真实菜单/快捷键以及跨 ALC Action 复核整条链。
+覆盖率阈值、双包确定性和窗口 Smoke 由干净主仓上的 `seal` 执行。
 
 G7 是本地开发门禁：`aiflow=false`，不调用 Windows CI/Smoke、Release Acceptance 或发布门禁，也不上传、
 签名或创建 tag。
