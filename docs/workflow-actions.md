@@ -31,7 +31,14 @@ G3.1 的 Schema Profile、实例验证、保守可赋值、引用路径和双 re
 
 ## 安全规则
 
-- 同一 Workflow Studio 插件不注册 Provider，避免违反 SDK 的 Provider/Consumer 互斥边界；
+- Workflow Studio 保持纯 Consumer；这是产品职责分工，Host 已允许其他插件在治理约束下使用双角色；
 - Fake 类型只存在于 `WorkflowStudio.Standalone`，正式 ZIP 只有 Plugin DLL、deps、PDB 和 manifest；
 - 运行记录只保存步骤、ForEach 索引、InvocationId、终态和 Host 脱敏失败，不保存参数或输出；
 - Action 的敏感指针只能由会话 Secret 引用满足。
+
+## G0013 内置示例的恢复边界
+
+内置 Fractal → ImageLab 示例在 Scoped 台账保留当前冻结定义的必要 Artifact 字段与逐项状态，
+不把任意 Action 输出加入通用运行记录，不保存 Secret，也不持久化。关闭立即清空台账。
+显式清理在应用层逐项创建 Release Run；一项失败不阻断其余项，确认和取消仍由 Host Gateway 负责。
+示例生成与续跑细节见 [G0013 专用文档](refactoring/G0013/README.md)。

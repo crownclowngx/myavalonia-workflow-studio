@@ -1,0 +1,859 @@
+[
+  {
+    "id": "myavalonia.plugin.fractal.art.workflow.render-artwork-file",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "recipePath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32767
+        }
+      },
+      "required": [
+        "recipePath"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "artifact": {
+          "type": "object",
+          "properties": {
+            "contract": {
+              "type": "string",
+              "enum": [
+                "myavalonia.workflow.file-artifact"
+              ]
+            },
+            "version": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "producerPluginId": {
+              "type": "string",
+              "enum": [
+                "myavalonia.plugin.fractal.art"
+              ]
+            },
+            "producerOperationId": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "lifetime": {
+              "type": "string",
+              "enum": [
+                "run"
+              ]
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32767
+            },
+            "mediaType": {
+              "type": "string",
+              "enum": [
+                "image/png"
+              ]
+            },
+            "byteLength": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 268435456
+            },
+            "sha256": {
+              "type": "string",
+              "minLength": 64,
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "contract",
+            "version",
+            "producerPluginId",
+            "producerOperationId",
+            "lifetime",
+            "path",
+            "mediaType",
+            "byteLength",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "artifact",
+        "image"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "myavalonia.plugin.fractal.art.workflow.release-artifact",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "artifact": {
+          "type": "object",
+          "properties": {
+            "contract": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer"
+            },
+            "producerPluginId": {
+              "type": "string"
+            },
+            "producerOperationId": {
+              "type": "string"
+            },
+            "lifetime": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "mediaType": {
+              "type": "string"
+            },
+            "byteLength": {
+              "type": "integer"
+            },
+            "sha256": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "contract",
+            "version",
+            "producerPluginId",
+            "producerOperationId",
+            "lifetime",
+            "path",
+            "mediaType",
+            "byteLength",
+            "sha256"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "artifact"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "released": {
+          "type": "boolean"
+        },
+        "warningCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "required": [
+        "released"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "myavalonia.plugin.fractal.art.workflow.export-artwork-batch",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "properties": {
+              "itemId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "recipePath": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32767
+              }
+            },
+            "required": [
+              "itemId",
+              "recipePath"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "properties": {
+        "results": {
+          "maxItems": 16,
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "artifact": {
+                "type": "object",
+                "properties": {
+                  "contract": {
+                    "type": "string",
+                    "enum": [
+                      "myavalonia.workflow.file-artifact"
+                    ]
+                  },
+                  "version": {
+                    "type": "integer",
+                    "enum": [
+                      1
+                    ]
+                  },
+                  "producerPluginId": {
+                    "type": "string",
+                    "enum": [
+                      "myavalonia.plugin.fractal.art"
+                    ]
+                  },
+                  "producerOperationId": {
+                    "type": "string",
+                    "minLength": 36,
+                    "maxLength": 36
+                  },
+                  "lifetime": {
+                    "type": "string",
+                    "enum": [
+                      "run"
+                    ]
+                  },
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32767
+                  },
+                  "mediaType": {
+                    "type": "string",
+                    "enum": [
+                      "image/png"
+                    ]
+                  },
+                  "byteLength": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 268435456
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "minLength": 64,
+                    "maxLength": 64
+                  }
+                },
+                "required": [
+                  "contract",
+                  "version",
+                  "producerPluginId",
+                  "producerOperationId",
+                  "lifetime",
+                  "path",
+                  "mediaType",
+                  "byteLength",
+                  "sha256"
+                ],
+                "additionalProperties": false
+              },
+              "image": {
+                "type": "object",
+                "properties": {
+                  "width": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4096
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4096
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "additionalProperties": false
+              },
+              "itemId": {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "artifact",
+              "image",
+              "itemId"
+            ],
+            "additionalProperties": false
+          },
+          "type": "array"
+        }
+      },
+      "type": "object",
+      "required": [
+        "results"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "myavalonia.plugin.image.lab.workflow.apply-art-effects-file",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "object",
+          "properties": {
+            "contract": {
+              "type": "string",
+              "enum": [
+                "myavalonia.workflow.file-artifact"
+              ]
+            },
+            "version": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "producerPluginId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "producerOperationId": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "lifetime": {
+              "type": "string",
+              "enum": [
+                "transient",
+                "run"
+              ]
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32767
+            },
+            "mediaType": {
+              "type": "string",
+              "enum": [
+                "image/png"
+              ]
+            },
+            "byteLength": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 268435456
+            },
+            "sha256": {
+              "type": "string",
+              "minLength": 64,
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "contract",
+            "version",
+            "producerPluginId",
+            "producerOperationId",
+            "lifetime",
+            "path",
+            "mediaType",
+            "byteLength",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        "blur": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "sigma": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            }
+          },
+          "required": [
+            "enabled",
+            "sigma"
+          ],
+          "additionalProperties": false
+        },
+        "bloom": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "threshold": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "sigma": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 10
+            },
+            "strength": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 4
+            }
+          },
+          "required": [
+            "enabled",
+            "threshold",
+            "sigma",
+            "strength"
+          ],
+          "additionalProperties": false
+        },
+        "grain": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "amount": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "seed": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "enabled",
+            "amount",
+            "seed"
+          ],
+          "additionalProperties": false
+        },
+        "outputPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32767
+        }
+      },
+      "required": [
+        "source",
+        "blur",
+        "bloom",
+        "grain",
+        "outputPath"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "artifact": {
+          "type": "object",
+          "properties": {
+            "contract": {
+              "type": "string",
+              "enum": [
+                "myavalonia.workflow.file-artifact"
+              ]
+            },
+            "version": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "producerPluginId": {
+              "type": "string",
+              "enum": [
+                "myavalonia.plugin.image.lab"
+              ]
+            },
+            "producerOperationId": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "lifetime": {
+              "type": "string",
+              "enum": [
+                "persistent"
+              ]
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32767
+            },
+            "mediaType": {
+              "type": "string",
+              "enum": [
+                "image/png"
+              ]
+            },
+            "byteLength": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 268435456
+            },
+            "sha256": {
+              "type": "string",
+              "minLength": 64,
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "contract",
+            "version",
+            "producerPluginId",
+            "producerOperationId",
+            "lifetime",
+            "path",
+            "mediaType",
+            "byteLength",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "artifact",
+        "image"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "myavalonia.plugin.image.lab.workflow.apply-art-effects-file-to-directory",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "object",
+          "properties": {
+            "contract": {
+              "type": "string",
+              "enum": [
+                "myavalonia.workflow.file-artifact"
+              ]
+            },
+            "version": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "producerPluginId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "producerOperationId": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "lifetime": {
+              "type": "string",
+              "enum": [
+                "transient",
+                "run"
+              ]
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32767
+            },
+            "mediaType": {
+              "type": "string",
+              "enum": [
+                "image/png"
+              ]
+            },
+            "byteLength": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 268435456
+            },
+            "sha256": {
+              "type": "string",
+              "minLength": 64,
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "contract",
+            "version",
+            "producerPluginId",
+            "producerOperationId",
+            "lifetime",
+            "path",
+            "mediaType",
+            "byteLength",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        "blur": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "sigma": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            }
+          },
+          "required": [
+            "enabled",
+            "sigma"
+          ],
+          "additionalProperties": false
+        },
+        "bloom": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "threshold": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "sigma": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 10
+            },
+            "strength": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 4
+            }
+          },
+          "required": [
+            "enabled",
+            "threshold",
+            "sigma",
+            "strength"
+          ],
+          "additionalProperties": false
+        },
+        "grain": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "amount": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "seed": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "enabled",
+            "amount",
+            "seed"
+          ],
+          "additionalProperties": false
+        },
+        "outputDirectory": {
+          "maxLength": 32767,
+          "minLength": 1,
+          "type": "string"
+        },
+        "fileStem": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "blur",
+        "bloom",
+        "grain",
+        "outputDirectory",
+        "fileStem"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "artifact": {
+          "type": "object",
+          "properties": {
+            "contract": {
+              "type": "string",
+              "enum": [
+                "myavalonia.workflow.file-artifact"
+              ]
+            },
+            "version": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "producerPluginId": {
+              "type": "string",
+              "enum": [
+                "myavalonia.plugin.image.lab"
+              ]
+            },
+            "producerOperationId": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36
+            },
+            "lifetime": {
+              "type": "string",
+              "enum": [
+                "persistent"
+              ]
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32767
+            },
+            "mediaType": {
+              "type": "string",
+              "enum": [
+                "image/png"
+              ]
+            },
+            "byteLength": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 268435456
+            },
+            "sha256": {
+              "type": "string",
+              "minLength": 64,
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "contract",
+            "version",
+            "producerPluginId",
+            "producerOperationId",
+            "lifetime",
+            "path",
+            "mediaType",
+            "byteLength",
+            "sha256"
+          ],
+          "additionalProperties": false
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            }
+          },
+          "required": [
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "artifact",
+        "image"
+      ],
+      "additionalProperties": false
+    }
+  }
+]

@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:main="using:WorkflowStudio.Features.Main"
+    xmlns:art="using:WorkflowStudio.Workflows.ArtWorkflow"
+    x:Class="WorkflowStudio.Features.Main.ArtWorkflowView" x:DataType="main:ArtWorkflowPanel">
+  <Expander Header="Fractal → ImageLab · 文件式批量后处理" HorizontalAlignment="Stretch" Margin="0,8,0,0">
+    <ScrollViewer MaxHeight="410">
+      <StackPanel Spacing="8">
+        <TextBlock Text="生成完整工作流后点击上方“执行”。恢复仅限当前会话的内置示例快照；修改生成步骤后按普通工作流执行。" TextWrapping="Wrap"/>
+        <Grid ColumnDefinitions="*,12,*,12,*">
+          <StackPanel Spacing="6">
+            <TextBlock FontWeight="SemiBold" Text="1–16 个已保存配方（支持重复文件）"/>
+            <WrapPanel>
+              <Button Content="添加配方" Command="{Binding AddRecipesCommand}" Margin="0,0,6,0"/>
+              <Button Content="上移" Command="{Binding MoveUpCommand}" Margin="0,0,6,0"/>
+              <Button Content="下移" Command="{Binding MoveDownCommand}" Margin="0,0,6,0"/>
+              <Button Content="移除" Command="{Binding RemoveRecipeCommand}"/>
+            </WrapPanel>
+            <ListBox x:Name="RecipeList" Height="120" ItemsSource="{Binding Recipes}" SelectedIndex="{Binding SelectedIndex}"/>
+            <TextBlock Text="输出到已存在的目录，永不覆盖文件"/>
+            <TextBox x:Name="OutputDirectoryBox" Text="{Binding OutputDirectory}" IsReadOnly="{Binding IsBusy}" PlaceholderText="输出目录的绝对路径"/>
+            <Button Content="选择输出目录" Command="{Binding ChooseDirectoryCommand}"/>
+          </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="6">
+            <TextBlock FontWeight="SemiBold" Text="ImageLab 后处理参数（不改变 Fractal 实时效果）" TextWrapping="Wrap"/>
+            <CheckBox Content="Blur 高斯模糊" IsChecked="{Binding BlurEnabled}"/>
+            <NumericUpDown Value="{Binding BlurSigma}" Minimum="0" Maximum="10" Increment=".1" FormatString="F2"/>
+            <CheckBox Content="Bloom 发光：阈值 / Sigma / 强度" IsChecked="{Binding BloomEnabled}"/>
+            <Grid ColumnDefinitions="*,6,*,6,*">
+              <NumericUpDown Value="{Binding BloomThreshold}" Minimum="0" Maximum="1" Increment=".01" FormatString="F2"/>
+              <NumericUpDown Grid.Column="2" Value="{Binding BloomSigma}" Minimum=".1" Maximum="10" Increment=".1" FormatString="F2"/>
+              <NumericUpDown Grid.Column="4" Value="{Binding BloomStrength}" Minimum="0" Maximum="4" Increment=".1" FormatString="F2"/>
+            </Grid>
+            <CheckBox Content="Grain 颗粒：强度 / Seed" IsChecked="{Binding GrainEnabled}"/>
+            <Grid ColumnDefinitions="*,6,*">
+              <NumericUpDown Value="{Binding GrainAmount}" Minimum="0" Maximum="100" Increment="1"/>
+              <NumericUpDown Grid.Column="2" Value="{Binding GrainSeed}" Increment="1" FormatString="F0"/>
+            </Grid>
+            <Button Content="生成并验证完整定义" Command="{Binding CreateCommand}"/>
+          </StackPanel>
+          <StackPanel Grid.Column="4" Spacing="6">
+            <TextBlock FontWeight="SemiBold" Text="会话恢复：保留成功 PNG，只续跑未完成项"/>
+            <WrapPanel>
+              <Button Content="准备续跑未完成项" Command="{Binding ResumeCommand}" Margin="0,0,6,6"/>
+              <Button Content="准备重新生成未完成项" Command="{Binding RegenerateCommand}" Margin="0,0,6,6"/>
+              <Button Content="清理临时源（Host 确认）" Command="{Binding CleanupCommand}" Margin="0,0,6,6"/>
+              <Button Content="放弃恢复（保留输出，临时源按 TTL 回收）" Command="{Binding AbandonCommand}"/>
+            </WrapPanel>
+            <TextBlock Text="重新生成会读取原路径下的当前配方（内容可能已变化），并使用新输出名称。" TextWrapping="Wrap"/>
+            <ItemsControl ItemsSource="{Binding Results}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="art:ArtWorkflowItemStatus">
+                  <StackPanel Margin="0,6">
+                    <TextBlock Text="{Binding RecipePath}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Processing}" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding Cleanup}"/>
+                    <TextBlock Text="{Binding OutputPath}" TextWrapping="Wrap"/>
+                    <ItemsControl ItemsSource="{Binding UncertainOutputs}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" TextWrapping="Wrap"/></DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Grid>
+        <TextBlock Text="{Binding Status}" TextWrapping="Wrap"/>
+      </StackPanel>
+    </ScrollViewer>
+  </Expander>
+</UserControl>

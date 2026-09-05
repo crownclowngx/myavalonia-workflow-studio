@@ -22,7 +22,8 @@ public sealed class WorkflowRunner(
     IWorkflowActionCatalogProjection catalogProjection,
     IWorkflowDefinitionValidator validator,
     IWorkflowReferenceResolver resolver,
-    IWorkflowJsonSchemaValidator schemaValidator) : IWorkflowRunner
+    IWorkflowJsonSchemaValidator schemaValidator,
+    IWorkflowInvocationObserver? observer = null) : IWorkflowRunner
 {
     private readonly WorkflowStudioLimits _limits = WorkflowStudioLimits.Default;
 
@@ -47,6 +48,7 @@ public sealed class WorkflowRunner(
         int? currentItemIndex = null;
         try
         {
+            observer?.Begin(definition);
             await using var run = gateway.CreateRun();
             for (var stepIndex = 0; stepIndex < definition.Steps.Count; stepIndex++)
             {
@@ -118,6 +120,7 @@ public sealed class WorkflowRunner(
         {
             // 输出快照只服务本次引用解析；结果对象不返回正文，避免 Provider 意外回显 Secret 后被长期保存。
             outputs.Clear();
+            observer?.End();
         }
     }
 
@@ -145,12 +148,14 @@ public sealed class WorkflowRunner(
             ? null
             : new Progress<WorkflowActionProgress>(item => progress.Report(
                 new(step.Id, itemIndex, item.Stage, item.Percent, item.Message)));
+        observer?.Started(step.Id, itemIndex);
         var result = await run.InvokeAsync(
             new WorkflowActionInvocationRequest(step.ActionId, arguments),
             actionProgress,
             cancellationToken);
         var entry = new WorkflowRunEntry(step.Id, itemIndex, result.InvocationId, result.Status,
             result.Failure?.Code, result.Failure?.Message);
+        observer?.Observe(step.Id, itemIndex, descriptor, result.Status, result.Output);
         return new(result.Status == WorkflowActionInvocationStatus.Succeeded, result.Output, entry);
     }
 

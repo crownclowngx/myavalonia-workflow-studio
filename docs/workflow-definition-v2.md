@@ -55,3 +55,7 @@ UI Command。Runner 仍只创建一个 caller-bound Run，串行执行步骤和�
 
 定义预算为 256 KiB、32 步、单个 ForEach 100 项、总调用估算 256 次、总运行 6 小时。Secret 与中间输出
 只属于当前 Document 运行会话；关闭、取消和释放会清理它们，定义、日志、TRX、ZIP 与摘要不保存其正文。
+
+G0013 不改变上述线格式或通用执行规则。内置 Fractal → ImageLab 示例额外使用会话台账，
+仅投影指定 Action 的白名单文件字段与逐项状态，以支持手动续跑和显式清理；
+该台账不写入定义 JSON，也不作为通用工作流持久化或跨重启恢复机制。详见 [G0013 设计](refactoring/G0013/implementation.md)。

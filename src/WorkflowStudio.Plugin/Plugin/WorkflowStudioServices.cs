@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MyAvaloniaManagement.PluginSdk.Workflow;
 using WorkflowStudio.Features.Main;
 using WorkflowStudio.Workflows;
+using WorkflowStudio.Workflows.ArtWorkflow;
 
 namespace WorkflowStudio.Plugin;
 
@@ -31,6 +32,12 @@ public static class WorkflowStudioServices
         services.AddScoped<IWorkflowRunner, WorkflowRunner>();
         services.AddScoped<IWorkflowEditorCoordinator, WorkflowEditorCoordinator>();
         services.AddScoped<IWorkflowRunSession, WorkflowRunSession>();
+        services.AddScoped<ArtWorkflowDefinitionBuilder>();
+        services.AddSingleton<IArtWorkflowSourceValidator, ArtWorkflowSourceValidator>();
+        services.AddScoped<ArtWorkflowRecoverySession>();
+        services.AddScoped<IWorkflowInvocationObserver>(provider => provider.GetRequiredService<ArtWorkflowRecoverySession>());
+        services.AddScoped<IArtWorkflowFilePicker, ArtWorkflowFilePicker>();
+        services.AddScoped<ArtWorkflowPanel>();
         return services;
     }
 }

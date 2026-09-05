@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:main="using:WorkflowStudio.Features.Main"
     x:DataType="main:MainDocument">
-  <Grid Margin="16" ColumnDefinitions="260,12,*,12,320" RowDefinitions="Auto,12,*">
+  <Grid Margin="16" ColumnDefinitions="260,12,*,12,320" RowDefinitions="Auto,Auto,12,*">
     <StackPanel Grid.ColumnSpan="5" Orientation="Horizontal" Spacing="8">
       <TextBlock VerticalAlignment="Center" FontSize="22" FontWeight="SemiBold" Text="MyAvalonia Workflow Studio" />
       <Button Command="{Binding RefreshCatalogCommand}" Content="刷新目录" />
@@ -15,7 +15,8 @@
       <Button Command="{Binding CancelCommand}" Content="取消" IsEnabled="{Binding IsRunning}" />
     </StackPanel>
 
-    <Border Grid.Row="2" Padding="10" BorderBrush="Gray" BorderThickness="1" CornerRadius="4">
+    <main:ArtWorkflowView Grid.Row="1" Grid.ColumnSpan="5" DataContext="{Binding ArtWorkflow}" />
+    <Border Grid.Row="3" Padding="10" BorderBrush="Gray" BorderThickness="1" CornerRadius="4">
       <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
         <TextBlock FontWeight="SemiBold" Text="Action 目录" />
         <ComboBox Grid.Row="1" Margin="0,8" ItemsSource="{Binding AvailableActions}"
@@ -45,7 +46,7 @@
       </Grid>
     </Border>
 
-    <Border Grid.Row="2" Grid.Column="2" Padding="10" BorderBrush="Gray" BorderThickness="1" CornerRadius="4">
+    <Border Grid.Row="3" Grid.Column="2" Padding="10" BorderBrush="Gray" BorderThickness="1" CornerRadius="4">
       <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,140">
         <TextBlock FontWeight="SemiBold" Text="结构化步骤编辑器" />
         <TextBox Grid.Row="1" Margin="0,8,0,0" PlaceholderText="工作流摘要" Text="{Binding Summary}" />
@@ -80,7 +81,7 @@
       </Grid>
     </Border>
 
-    <Border Grid.Row="2" Grid.Column="4" Padding="10" BorderBrush="Gray" BorderThickness="1" CornerRadius="4">
+    <Border Grid.Row="3" Grid.Column="4" Padding="10" BorderBrush="Gray" BorderThickness="1" CornerRadius="4">
       <Grid RowDefinitions="Auto,Auto,*,Auto,Auto,*">
         <TextBlock FontWeight="SemiBold" Text="验证与运行" />
         <TextBlock Grid.Row="1" Margin="0,8" Text="{Binding RiskSummary}" TextWrapping="Wrap" />

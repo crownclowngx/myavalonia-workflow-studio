@@ -43,11 +43,18 @@ public sealed partial class MainDocument :
     public MainDocument(
         IWorkflowEditorCoordinator editor,
         IWorkflowRunSession runSession,
-        IDocumentLifetime lifetime)
+        IDocumentLifetime lifetime,
+        ArtWorkflowPanel? artWorkflow = null)
     {
         _editor = editor;
         _runSession = runSession;
         _lifetime = lifetime;
+        ArtWorkflow = artWorkflow;
+        if (artWorkflow is not null)
+        {
+            artWorkflow.DefinitionPrepared += LoadArtWorkflow;
+            artWorkflow.BusyChanged += SetArtWorkflowBusy;
+        }
         RefreshCatalogCommand = new RelayCommand(RefreshCatalog, () => !IsRunning);
         AddStepCommand = new RelayCommand(AddStep, () => SelectedAction is not null && !IsRunning);
         RemoveStepCommand = new RelayCommand(RemoveStep, () => SelectedStep is not null && !IsRunning);
@@ -58,10 +65,26 @@ public sealed partial class MainDocument :
         ExportCommand = new RelayCommand(ExportDefinition, () => !IsRunning);
         StoreSecretCommand = new RelayCommand(StoreSecret, () => !IsRunning);
         RunCommand = new AsyncRelayCommand(RunAsync, () => CanExecute && !IsRunning);
-        CancelCommand = new RelayCommand(_runSession.Cancel, () => IsRunning);
+        CancelCommand = new RelayCommand(CancelCurrent, () => IsRunning);
     }
 
     public ObservableCollection<WorkflowActionChoice> AvailableActions { get; } = [];
+    public ArtWorkflowPanel? ArtWorkflow { get; }
+
+    private void SetArtWorkflowBusy(bool busy) => IsRunning = busy;
+    private void CancelCurrent() { ArtWorkflow?.Cancel(); _runSession.Cancel(); }
+
+    private void LoadArtWorkflow(WorkflowDefinitionV2 definition, WorkflowActionCatalogSnapshot catalog)
+    {
+        _catalog = catalog;
+        var snapshot = _editor.Import(_editor.Export(definition), catalog);
+        Steps.Clear();
+        Summary = snapshot.Summary;
+        foreach (var step in snapshot.Steps) Steps.Add(step);
+        SelectedStep = Steps.FirstOrDefault();
+        DefinitionJson = _editor.Export(definition);
+        ValidateDefinition();
+    }
     public ObservableCollection<WorkflowStepEditor> Steps { get; } = [];
     public ObservableCollection<WorkflowValidationMessage> ValidationMessages { get; } = [];
     public ObservableCollection<WorkflowRunMessage> RunMessages { get; } = [];
@@ -199,7 +222,7 @@ public sealed partial class MainDocument :
         }
         if (commandId == PluginIds.CancelWorkflow)
         {
-            _runSession.Cancel();
+            CancelCurrent();
             return ValueTask.CompletedTask;
         }
 
@@ -381,8 +404,12 @@ public sealed partial class MainDocument :
         try
         {
             var progress = new Progress<WorkflowRunProgress>(item =>
-                RunStatus = $"{item.StepId}：{item.Stage} {item.Percent?.ToString() ?? "-"}%");
+            {
+                if (!_disposed && !_lifetime.IsClosing)
+                    RunStatus = $"{item.StepId}：{item.Stage} {item.Percent?.ToString() ?? "-"}%";
+            });
             var result = await _runSession.RunAsync(BuildDefinition(), progress, cancellationToken);
+            if (_disposed || _lifetime.IsClosing) return;
             foreach (var entry in result.Entries)
             {
                 var item = entry.ItemIndex is null ? string.Empty : $"[{entry.ItemIndex}]";
@@ -405,11 +432,16 @@ public sealed partial class MainDocument :
             }
             RunStatus = "执行前目录或定义已失效。";
         }
+        catch (InvalidOperationException exception)
+        {
+            RunStatus = exception.Message;
+        }
         finally
         {
             Volatile.Write(ref _workbenchRunActive, 0);
             IsRunning = false;
             NotifyCommandState();
+            ArtWorkflow?.Refresh();
         }
     }
 
@@ -425,6 +457,7 @@ public sealed partial class MainDocument :
     {
         Interlocked.Exchange(ref _closing, 1);
         _runSession.Close();
+        ArtWorkflow?.Close();
         Steps.Clear();
         DefinitionJson = string.Empty;
         CanExecute = false;
@@ -466,6 +499,7 @@ public sealed partial class MainDocument :
     partial void OnSelectedStepChanged(WorkflowStepEditor? value) => NotifyCommandState();
     partial void OnIsRunningChanged(bool value)
     {
+        ArtWorkflow?.SetRunning(value);
         NotifyCommandState();
         NotifyWorkbenchCommandState(
             PluginIds.ValidateWorkflow,
@@ -486,6 +520,11 @@ public sealed partial class MainDocument :
             return;
         }
         _disposed = true;
+        if (ArtWorkflow is not null)
+        {
+            ArtWorkflow.DefinitionPrepared -= LoadArtWorkflow;
+            ArtWorkflow.BusyChanged -= SetArtWorkflowBusy;
+        }
         _closingRegistration.Dispose();
         CloseSession();
         _runSession.Dispose();

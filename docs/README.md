@@ -10,6 +10,7 @@
 | [定义 v2 与执行语义](workflow-definition-v2.md) | 当前私有线格式、双 revision、引用、验证与运行失败边界 |
 | [定义 v1 历史说明](workflow-definition-v1.md) | G3 历史格式；当前 Codec 明确拒绝 |
 | [Workflow Action 接入](workflow-actions.md) | Consumer 注册、Standalone Fake 与真实 caller-bound Gateway |
+| [G0013 Fractal → ImageLab](refactoring/G0013/README.md) | 内置完整定义、部分成功续跑、重新生成与显式清理 |
 | [Workbench Command 三命令设计](workbench-commands.md) | Validate/Run/Cancel 身份、状态、执行链、SOLID 与生命周期 |
 | [项目和窗口职责](project-and-window-responsibilities.md) | 三项目所有权、SOLID 划分与关闭顺序 |
 | [部署与非发布验收](deployment-and-release.md) | 本地 ZIP、真实 Host 和 G3.1/G7/G10 专项门禁 |
@@ -21,6 +22,7 @@
 ## 当前能力
 
 - 从 Gateway 当前目录添加、删除和排序步骤；
+- 通过内置 Fractal → ImageLab 示例生成单张或 1–16 项批量定义，并在当前会话恢复未完成项；
 - 编辑 JSON 常量、前序输出引用、ForEach item 引用和会话 Secret 引用；
 - 严格导入与规范导出定义 v2，并拒绝 v1、未知字段、重复字段和混合版本；
 - 在执行前检查 Contract/Presentation revision、引用路径保证、Schema 可赋值、Secret、风险和预算；
