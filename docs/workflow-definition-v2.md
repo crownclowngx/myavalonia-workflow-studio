@@ -1,5 +1,7 @@
 # Workflow Definition v2 与执行语义
 
+G0014 对归档 v1 公开结果增加业务摘要识别：合法部分失败仍继续明确成功项与后续清理步骤，最终运行报告业务失败；SDK 调用状态和定义线格式保持。详见 [G0014 说明](refactoring/G0014/README.md)。
+
 ## 严格根协议
 
 Workflow Studio 1.2.0 只接受以下根字段，字段缺失、未知、重复、`schemaVersion: 1` 或混合版本均返回

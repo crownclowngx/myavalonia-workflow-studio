@@ -104,7 +104,10 @@ public sealed class WorkflowRunner(
                 }
                 outputs[step.Id] = JsonSerializer.SerializeToElement(aggregated);
             }
-            return new(true, false, entries, "工作流执行成功。");
+            // 已完成的 SDK 调用仍可能含业务失败。保留成功引用和清理步骤的执行机会，最终摘要必须如实收口。
+            var businessFailures = entries.Count(entry => entry.Status == WorkflowActionInvocationStatus.Succeeded && entry.FailureCode is not null);
+            return businessFailures == 0 ? new(true, false, entries, "工作流执行成功。") :
+                new(false, false, entries, $"工作流执行完成，其中 {businessFailures} 次归档调用包含业务失败；已保留成功产物。");
         }
         catch (WorkflowReferenceResolutionException exception)
         {
@@ -153,10 +156,12 @@ public sealed class WorkflowRunner(
             new WorkflowActionInvocationRequest(step.ActionId, arguments),
             actionProgress,
             cancellationToken);
+        var failure = result.Failure ?? (result.Status == WorkflowActionInvocationStatus.Succeeded
+            ? ArchiveWorkflowOutcome.Inspect(step.ActionId, result.Output) : null);
         var entry = new WorkflowRunEntry(step.Id, itemIndex, result.InvocationId, result.Status,
-            result.Failure?.Code, result.Failure?.Message);
+            failure?.Code, failure?.Message);
         observer?.Observe(step.Id, itemIndex, descriptor, result.Status, result.Output);
-        return new(result.Status == WorkflowActionInvocationStatus.Succeeded, result.Output, entry);
+        return new(result.Status == WorkflowActionInvocationStatus.Succeeded && failure?.Code != "archive.result-invalid", result.Output, entry);
     }
 
     private static WorkflowRunResult Failed(
