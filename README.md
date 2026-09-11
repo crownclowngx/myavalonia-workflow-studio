@@ -1,12 +1,15 @@
 # MyAvalonia Workflow Studio
 
+> V6.1 图标同步升级：插件 `1.2.1`，Core/UI SDK `3.4.0`，Build `1.1.3`。
+> 图标映射、兼容边界与验证命令见 [专用说明](docs/plan-history/v6.1-plugin-icons.md)。
+
 G0013 已增加 Document 内置“Fractal → ImageLab”示例：1–16 个已保存配方、完整 Definition v2、
 保留成功 PNG、会话续跑与显式清理。见 [专项入口](docs/refactoring/G0013/README.md)与[设计和使用](docs/refactoring/G0013/implementation.md)。
 本阶段使用 Debug 本地门禁，不运行下文历史 Host 封板/ZIP 命令，也不增加 Windows CI 或发布门禁。
 
 这是使用 `MyAvaloniaManagement.Plugin.Templates 1.1.0` 创建、随后独立演进的 Managed Plugin 解决方案，
-稳定 PluginId 为 `myavalonia.plugin.workflow-studio`。当前插件版本为 `1.2.0`，精确消费 Core/UI SDK
-`3.3.0`、Workflow SDK `1.0.0` 与 Build `1.1.2`。Workflow Action G3.1 已实现不依赖模型、API Key 或
+稳定 PluginId 为 `myavalonia.plugin.workflow-studio`。当前插件版本为 `1.2.1`，精确消费 Core/UI SDK
+`3.4.0`、Workflow SDK `1.0.0` 与 Build `1.1.3`。Workflow Action G3.1 已实现不依赖模型、API Key 或
 规划网络的手工工作流 MVP；Workbench Command G7 又把验证、运行和取消接入 Host 统一命令系统，原编辑器
 按钮与 Runner/Workflow Action 治理链保持不变。G10 已与 Host、ClassicGame 完成单轮完整跨仓本地封板，
 不形成发布资格。

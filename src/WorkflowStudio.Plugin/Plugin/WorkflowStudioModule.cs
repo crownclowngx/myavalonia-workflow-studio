@@ -11,6 +11,9 @@ public sealed class WorkflowStudioModule : IPluginModule
     {
         ArgumentNullException.ThrowIfNull(registration);
 
+        // 图形只在模块组合阶段声明；引用由当前注册上下文绑定所有者，业务入口不手写 plugin: 身份。
+        var workflowIcon = registration.AddIcon("workflow", PluginIcons.Workflow);
+
         registration.Services.AddWorkflowStudioServices();
         registration.UseWorkflowActionGateway();
         registration.AddDocument<MainDocument, MainView>(
@@ -18,7 +21,7 @@ public sealed class WorkflowStudioModule : IPluginModule
                 PluginIds.StudioDocument,
                 "Workflow Studio",
                 "临时编辑、验证并执行受 Host 治理的 Workflow Action",
-                "工作流插件"));
+                "工作流插件", iconPath: workflowIcon));
 
         // 这里仅声明稳定身份、展示文本和目标 Document 类型。注册表不能保存 MainDocument、
         // ICommand、回调或 Provider；Host 在执行瞬间才把 CommandId 路由到当前活动实例。

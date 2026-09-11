@@ -1,8 +1,10 @@
 # Workflow Studio 文档入口
 
+- [V6.1 图标同步升级](plan-history/v6.1-plugin-icons.md)：入口映射、依赖边界和验证结果。
+
 > 状态：Workflow Action G3.1、Workbench Command G7 与 G10 本地封板已完成；当前为非发布基线。
 
-本仓库位于 Host 仓库之外，只通过精确版本的 Core/UI SDK `3.3.0`、Workflow SDK `1.0.0` 与 Build `1.1.2`
+本仓库位于 Host 仓库之外，只通过精确版本的 Core/UI SDK `3.4.0`、Workflow SDK `1.0.0` 与 Build `1.1.3`
 相交。`WorkflowStudio.slnx` 不引用 Host 源码；Host 只消费构建生成的真实插件 ZIP。
 
 | 文档 | 说明 |
