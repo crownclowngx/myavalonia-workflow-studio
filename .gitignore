@@ -3,3 +3,4 @@
 artifacts/
 TestResults/
 *.user
+.aiflow/insight/
